@@ -16,14 +16,14 @@ Full help text can be found on the linked wiki for the view.*/
 
 --> Events
 -
-on preOpenControl
+-- on preOpenControl
    -- only sent to groups (s we use preOpenCard and dispatch view_Init)
    breakpoint
    view_Init
    pass preOpenControl
 end preOpenControl
 
-command view_Init
+-- command view_Init
    set the behavior_StackNames of me to "behavior_ViewKeepass,behavior_ViewBrowser"
    --
    _FixLayout
@@ -31,7 +31,7 @@ command view_Init
    lcw_Notify the behavior_StackNames of me
 end view_Init
 
-command _FixLayout
+-- command _FixLayout
    put the rect of this cd into cardRect
    put the view_RectOnCard of me into viewRect
    
