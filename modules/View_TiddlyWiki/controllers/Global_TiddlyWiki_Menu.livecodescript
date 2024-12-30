@@ -46,6 +46,20 @@ on menu_Tiddlywiki tiddlyView, shortFile
    end if
 end menu_Tiddlywiki
 
+on menu_EditHtml tiddlyView
+   -- file:///Users/david/Documents/git-repos/LiveCodeWorld/lcw_P2P/modules/View_TiddlyWiki/assets/index.html
+   put the url of tiddlyView into sURL
+   get char 1 to 8 of sURL
+   if it is not "file:///" then
+      put sURL
+      lcw_AnswerWarning "Not a file..."
+   end if
+   
+   -- put the module_HtmlFile [shortFile] of tiddlyView into htmlFile
+   put char 9 to -1 of sURL into htmlFile
+   code_OpenFile htmlFile
+end menu_EditHtml
+
 getprop tiddlywiki_Params
    put LocalArray ["mFiles"] into shortFiles
    return shortFiles
@@ -70,6 +84,11 @@ end checked_AddBrowserBehavior
 
 private on __
 end __
+
+on menu_RevealViewFolder tiddlyView
+   put the module_Folder of tiddlyView into moduleFolder
+   finder_Reveal moduleFolder
+end menu_RevealViewFolder
 
 on menu_Behavior tiddlyView
    put the behavior of tiddlyView into bObject
