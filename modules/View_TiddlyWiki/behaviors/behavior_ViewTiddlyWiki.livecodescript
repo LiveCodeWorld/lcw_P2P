@@ -16,6 +16,7 @@ local LocalArray
 --> Working on
 -
 
+
 --> Events | Unhandled
 -
 on browserUnhandledLoadRequest pUrl
@@ -57,6 +58,223 @@ command tiddlyWiki_ExportJson tidddlyView, pShortFile
 end tiddlyWiki_ExportJson
 
 
+--> Tiddler
+-
+getprop tiddler_Text [pTiddlerTitle]
+   put merge("$tw.wiki.getTiddlerText('[[pTiddlerTitle]]')") into sJavascript
+   put merge("liveCode.javascript_Result([[sJavascript]]);") into livecodeJavascript
+   put _GetJavascriptResult(livecodeJavascript) into jsResult
+   return jsResult
+end tiddler_Text
+
+setprop tiddler_Text [pTitle] sContent
+   if pTitle is empty then put the ticks into pTitle
+   tiddler_Normalise sContent
+   --
+   get merge ("$tw.wiki.addTiddler(new $tw.Tiddler({title: '[[pTitle]]', text: '[[sContent]]'}));")
+   do it in me
+   put the result into sResult
+   return sResult
+end tiddler_Text
+
+getprop tiddler_IsShowing [sTiddler]
+   get the tiddly_StoryTitles of me
+   return sTiddler is among the lines of it
+end tiddler_IsShowing
+
+setprop hide_Tiddler pTitle
+   -- JavaScript to remove the tiddler from $:/StoryList
+   put "var storyList = $tw.wiki.getTiddlerList('$:/StoryList');" & \
+         "var index = storyList.indexOf('" & pTitle & "');" & \
+         "if (index > -1) {" & \
+         "    storyList.splice(index, 1);" & \
+         "    var modificationFields = $tw.wiki.getModificationFields();" & \
+         "    $tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: storyList}, modificationFields);" & \
+         "}" into sJavascript
+   
+   -- Execute the JavaScript in the browser widget
+   do sJavascript in me
+   return the result
+end hide_Tiddler
+
+setprop show_Tiddler pTitle
+   -- JavaScript to update $:/StoryList and display the tiddler
+   put "var modificationFields = $tw.wiki.getModificationFields();" & \
+         "$tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: ['" & pTitle & "']}, modificationFields);" into sJavascript
+   
+   -- Execute the JavaScript in the browser widget
+   do sJavascript in me
+   return the result
+end show_Tiddler
+
+-- setprop show_Tiddler pTitle
+-- JavaScript to update $:/StoryList and display the tiddler
+put "var modificationFields = $tw.wiki.getModificationFields();" & \
+      "$tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: ['" & pTitle & "']}, modificationFields);" into sJavascript
+
+-- Execute the JavaScript in the browser widget
+do sJavascript in me
+put the result into jResult
+return jResult
+end show_Tiddler
+
+setprop show_Tiddlers pTitles
+   -- Convert the comma-separated list into a JavaScript array
+   put "[" & quote & replaceText(pTitles, ",", quote & "," & quote) & quote & "]" into tList
+   
+   -- JavaScript to update $:/StoryList with the list of tiddlers
+   put "var modificationFields = $tw.wiki.getModificationFields();" & \
+         "$tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: " & tList & "}, modificationFields);" into sJavascript
+   
+   -- Execute the JavaScript in the browser widget
+   do sJavascript in me
+   put the result into jResult
+   return jResult
+end show_Tiddlers
+
+-- setprop open_Tiddler pTitle
+put "liveCode.javascript_Result($tw.rootWidget.dispatchEvent({type: 'tm-navigate', navigateTo: '" & pTitle & "'}));" into sJavascript
+do sJavascript in me
+return the result
+end open_Tiddler
+
+
+--> Tiddler
+-
+getprop tiddly_Tags
+   -- JavaScript to filter and list all unique user-defined tags
+   put "$tw.wiki.filterTiddlers('[all[tiddlers]!is[system]tags[]!duplicates[]sort[]]').join(';')" into sJavascript
+   --
+   put merge("liveCode.javascript_Result([[sJavascript]]);") into livecodeJavascript
+   put _GetJavascriptResult(livecodeJavascript) into jsResult
+   --
+   replace ";" with CR in jsResult
+   return jsResult
+end tiddly_Tags
+
+getprop tiddly_Titles
+   put "$tw.wiki.filterTiddlers('[all[tiddlers]]').join(';')" into sJavascript
+   --
+   put merge ("liveCode.javascript_Result([[sJavascript]]);") into livecodeJavascript
+   put _GetJavascriptResult (livecodeJavascript) into jsResult
+   --
+   replace ";" with CR in jsResult
+   return jsResult
+end tiddly_Titles
+
+getprop tiddly_ListTitles [sTag]
+   if sTag is empty then
+      -- JavaScript to filter and list all user-created tiddlers
+      put "liveCode.javascript_Result(" & \
+            "$tw.wiki.filterTiddlers('[!is[system]sort[title]]').join(';'));" into sJavascript
+   else
+      -- JavaScript to filter tiddlers by the specified tag
+      put "liveCode.javascript_Result(" & \
+            "$tw.wiki.filterTiddlers('[tag[" & sTag & "]!is[system]sort[title]]').join(';'));" into sJavascript
+   end if
+   
+   -- Execute the JavaScript and get the result
+   put _GetJavascriptResult(sJavascript) into tSerialized
+   
+   -- Replace semicolons with commas for a cleaner LiveCode list
+   replace ";" with CR in tSerialized
+   
+   -- Return the serialized list of tagged tiddlers
+   return tSerialized
+end tiddly_ListTitles
+
+getprop tiddly_StoryTitles
+   -- JavaScript to get the story list
+   put "$tw.wiki.getTiddlerList('$:/StoryList').join(';')" into tiddlyBit
+   
+   -- Wrap in JavaScript for LiveCode execution
+   put "liveCode.javascript_Result(" & tiddlyBit & ");" into sJavascript
+   
+   -- Execute the JavaScript and get the result
+   put _GetJavascriptResult(sJavascript) into tSerialized
+   
+   -- Replace semicolons with commas for a cleaner LiveCode list
+   replace ";" with CR in tSerialized
+   
+   -- Return the serialized story list
+   return tSerialized
+end tiddly_StoryTitles
+
+getprop tiddly_Data [sTag]
+   put the tiddly_JSON [sTag] of me into tJSON
+   put jsonImport (tJSON) into tData
+   -- put json_ToArray (tJSON) into tData
+   return tData
+end tiddly_Data
+
+getprop tiddly_JSON [sTag]
+   if sTag is empty then
+      -- JavaScript to get user-authored tiddlers as JSON
+      put "liveCode.javascript_Result(JSON.stringify($tw.wiki.filterTiddlers('[!is[system]]').map(function(title) { var t = $tw.wiki.getTiddler(title); return t.fields; })));" into sJavascript
+   else
+      -- JavaScript to get user-authored tiddlers with a specific tag
+      put "liveCode.javascript_Result(JSON.stringify($tw.wiki.filterTiddlers('[tag[" & sTag & "]]').map(function(title) { var t = $tw.wiki.getTiddler(title); return t.fields; })));" into sJavascript
+   end if
+   
+   -- Execute JavaScript and retrieve the result
+   put _GetJavascriptResult(sJavascript) into tSerialized
+   
+   -- Return the serialized user content
+   return tSerialized
+end tiddly_JSON
+
+getprop tiddly_JSON
+   -- JavaScript to fetch user-created tiddlers with fields
+   put "liveCode.javascript_Result(" & \
+         "JSON.stringify($tw.wiki.filterTiddlers('[!is[system]]').map(function(title) {" & \
+         "var t = $tw.wiki.getTiddler(title);" & \
+         "return t ? t.fields : null;" & \
+         "}).filter(Boolean)));" into sJavascript
+   
+   -- Execute JavaScript and get the result
+   put _GetJavascriptResult(sJavascript) into jsResult
+   
+   -- Parse JSON result if necessary
+   return jsResult
+end tiddly_JSON
+
+setprop prepend_Tiddler pTitle
+   -- JavaScript to prepend the tiddler to the existing $:/StoryList
+   put "var storyList = $tw.wiki.getTiddlerList('$:/StoryList');" & \
+         "if (!storyList.includes('" & pTitle & "')) {" & \
+         "    storyList.unshift('" & pTitle & "');" & \
+         "    var modificationFields = $tw.wiki.getModificationFields();" & \
+         "    $tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: storyList}, modificationFields);" & \
+         "}" into sJavascript
+   
+   -- Execute the JavaScript in the browser widget
+   do sJavascript in me
+   put the result into jResult
+   return jResult
+end prepend_Tiddler
+
+setprop append_Tiddler pTitle
+   -- JavaScript to append the tiddler to the existing $:/StoryList
+   put "var storyList = $tw.wiki.getTiddlerList('$:/StoryList');" & \
+         "if (!storyList.includes('" & pTitle & "')) {" & \
+         "    storyList.push('" & pTitle & "');" & \
+         "    var modificationFields = $tw.wiki.getModificationFields();" & \
+         "    $tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: storyList}, modificationFields);" & \
+         "}" into sJavascript
+   
+   -- Execute the JavaScript in the browser widget
+   do sJavascript in me
+   put the result into jResult
+   return jResult
+end append_Tiddler
+
+setprop delete_Tiddler tiddlerTitle
+   tiddler_NormaliseTitle tiddlerTitle
+   get "$tw.wiki.deleteTiddler('" & tiddlerTitle & "');"
+   do it in me
+end delete_Tiddler
+
+
 --> Events
 -
 getprop tiddlyWiki_HTML
@@ -80,40 +298,11 @@ getprop tiddlyWiki_JSON
    return tSerialized
 end tiddlyWiki_JSON
 
-getprop tiddlers_ByTag [someTag]
-   breakpoint
-   -- $tw.wiki.filterTiddlers('[tag[Welcome]]');
-   -- think we need to escape filter expression
-   put "tag[" & someTag & "]]" into fTag
-   -- put "tag&#x5B;" & someTag & "&#x5D;]" into fTag
-   --
-   put merge ("liveCode.javascript_Result($tw.wiki.filterTiddlers('[[fTag]]').join(';'));") into livecodeJavascript
-   put _GetJavascriptResult(livecodeJavascript) into jsResult
-   replace ";" with CR in jsResult
-   return jsResult
-end tiddlers_ByTag
-
 getprop tiddler_Exists [tiddlerTitle]
    put merge("liveCode.javascript_Result($tw.wiki.tiddlerExists('[[tiddlerTitle]]'));") into livecodeJavascript
    put _GetJavascriptResult(livecodeJavascript) into jsResult
    return jsResult is "true"
 end tiddler_Exists
-
-setprop tiddler_Delete tiddlerTitle
-   tiddler_NormaliseTitle tiddlerTitle
-   get "$tw.wiki.deleteTiddler('" & tiddlerTitle & "');"
-   do it in me
-end tiddler_Delete
-
-setprop tiddler_Text [pTitle] sContent
-   if pTitle is empty then put the ticks into pTitle
-   tiddler_Normalise sContent
-   --
-   get merge ("$tw.wiki.addTiddler(new $tw.Tiddler({title: '[[pTitle]]', text: '[[sContent]]'}));")
-   do it in me
-   put the result into sResult
-   return sResult
-end tiddler_Text
 
 command tiddler_Normalise @pContent
    -- replace CR with "&#xA;" in pContent
@@ -146,25 +335,6 @@ command tiddler_NormaliseTitle @pTitle
    
    return pTitle
 end tiddler_NormaliseTitle
-
-getprop tiddler_Text [pTiddlerTitle]
-   put merge("$tw.wiki.getTiddlerText('[[pTiddlerTitle]]')") into sJavascript
-   put merge("liveCode.javascript_Result([[sJavascript]]);") into livecodeJavascript
-   put _GetJavascriptResult(livecodeJavascript) into jsResult
-   return jsResult
-end tiddler_Text
-
-getprop tiddly_Titles
-   -- put "document.querySelector('h1').outerHTML" into sJavascript
-   put "$tw.wiki.filterTiddlers('[all[tiddlers]]').join(';')" into sJavascript
-   --
-   put merge ("liveCode.javascript_Result([[sJavascript]]);") into livecodeJavascript
-   put _GetJavascriptResult (livecodeJavascript) into jsResult
-   --
-   -- put livecodeJavascript & CR&CR before jsResult
-   replace ";" with CR in jsResult
-   return jsResult
-end tiddly_Titles
 
 private function _GetJavascriptResult sJavascript
    -- set the javascriptHandlers of me to "javascript_Result"
@@ -220,7 +390,7 @@ on browserFrameDocumentLoadBegin pUrl
 end browserFrameDocumentLoadBegin
 
 on browserFrameDocumentLoadComplete pUrl
-   breakpoint   
+   -- breakpoint   
 end browserFrameDocumentLoadComplete
 
 on browserFrameDocumentLoadFailed pUrl, pError
