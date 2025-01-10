@@ -26,6 +26,10 @@ on preOpenStack
    end if
 end preOpenStack
 
+on project_PostInit
+   display_ModuleTools "View|TiddlyWiki"
+end project_PostInit
+
 
 --> Deps
 -
