@@ -12,10 +12,48 @@ version: 0.1
 
 --> Working on
 -
+getprop module_ReadMeFile
+   put the module_Folder of the target into moduleFolder
+   --
+   put moduleFolder & "readme.html" into readMeFile
+   return readMeFile
+end module_ReadMeFile
+
+getprop project_ReadmeFile
+   put the project_Name of the target into projectName
+   if projectName is empty then return empty
+   
+   put project_ConstructReadMeFile (projectName) into readMeFile
+   if there is a file readMeFile then
+      return readMeFile
+   else
+      return empty
+   end if
+end project_ReadmeFile
+ 
+function project_ConstructReadMeFile projectName
+   put project_GetFolder (projectName) into projectFolder
+   put projectFolder & "readme.html" into readMeFile
+   return readMeFile
+end project_ConstructReadMeFile
+
+
+--> Display
+-
+command edit_TiddlyHtml
+   -- put the tempname & ".html" into sPath
+   put the browser_File [true] of the target into sFile
+   put trash_File (sFile) into sPath
+   --
+   put the tiddly_Html of the target into tHTML
+   text_Set sPath, tHTML
+   code_EditFile sPath
+end edit_TiddlyHtml
+
 command display_ModuleReadme moduleName, pBrowserView
    put module_ConstructReadMeFile (moduleName) into readMeFile
    if there is not a file readMeFile then
-      tiddly_CreateReadMe moduleName
+      tiddly_CreateReadMe moduleName, "projectify.html"
       put the result into readMeFile
       if there is not a file readMeFile then
          breakpoint
@@ -34,9 +72,9 @@ command display_ModuleReadme moduleName, pBrowserView
 end display_ModuleReadme
 
 command display_Readme projectName, pBrowserView
-   put project_ReadMeFile (projectName) into readMeFile
+   put project_ConstructReadMeFile (projectName) into readMeFile
    if there is not a file readMeFile then
-      tiddly_CreateReadMe projectName
+      tiddly_CreateReadMe projectName, "projectify.html"
       put the result into readMeFile
       if there is not a file readMeFile then
          breakpoint
@@ -57,13 +95,6 @@ end display_Readme
 
 --> Module
 -
-getprop module_ReadMeFile
-   put the module_Folder of the target into moduleFolder
-   --
-   put moduleFolder & "readme.html" into readMeFile
-   return readMeFile
-end module_ReadMeFile
-
 function module_ConstructReadMeFile moduleName
    if there is not a stack moduleName then
       return "Error, module does not exists:" && moduleName
@@ -145,6 +176,10 @@ end tiddly_EditModuleReadme
 
 command tiddly_CreateModuleReadMe moduleName, pShortFile
    put tiddly_DefaultFile (pShortFile) into tiddlyDefaultFile
+   if there is not a file tiddlyDefaultFile then
+      breakpoint
+      put tiddly_DefaultFile() into tiddlyDefaultFile
+   end if
    put module_ConstructReadMeFile (moduleName) into readMeFile
    --
    revCopyFile tiddlyDefaultFile, readMeFile
@@ -157,7 +192,11 @@ end tiddly_CreateModuleReadMe
 
 command tiddly_CreateReadMe projectName, pShortFile
    put tiddly_DefaultFile (pShortFile) into tiddlyDefaultFile
-   put project_ReadMeFile (projectName) into readMeFile
+   if there is not a file tiddlyDefaultFile then
+      breakpoint
+      put tiddly_DefaultFile() into tiddlyDefaultFile
+   end if
+   put project_ConstructReadMeFile (projectName) into readMeFile
    --
    revCopyFile tiddlyDefaultFile, readMeFile
    if the result is empty then
@@ -171,29 +210,11 @@ end tiddly_CreateReadMe
 --> TiddlyWiki | ReadMe | Project
 -
 command tiddly_EditReadme projectName
-   put project_ReadMeFile (projectName) into readMeFile
+   put project_ConstructReadMeFile (projectName) into readMeFile
    --
    code_EditFile readMeFile
    return readMeFile
 end tiddly_EditReadme
-
-command tiddly_CreateReadMe projectName, pShortFile
-   put tiddly_DefaultFile (pShortFile) into tiddlyDefaultFile
-   put project_ReadMeFile (projectName) into readMeFile
-   --
-   revCopyFile tiddlyDefaultFile, readMeFile
-   if the result is empty then
-      return readMeFile
-   else
-      return "Error, failed to create file:" && readMeFile
-   end if
-end tiddly_CreateReadMe
-
-function project_ReadMeFile projectName
-   put project_GetFolder (projectName) into projectFolder
-   put projectFolder & "readme.html" into readMeFile
-   return readMeFile
-end project_ReadMeFile
 
 function tiddly_DefaultFile pShortFile
    if pShortFile is empty then put "empty.html" into pShortFile
@@ -207,7 +228,3 @@ function tiddly_DefaultFolder
    folder_CreateNested dFolder
    return dFolder
 end tiddly_DefaultFolder
-
-
---> Deps
--

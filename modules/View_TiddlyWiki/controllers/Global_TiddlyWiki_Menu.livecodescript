@@ -25,14 +25,26 @@ getprop menu_Target [tObject]
       breakpoint
       put tObject into tiddlyView
    end if
-   put the tiddly_ListTitles of tiddlyView into LocalArray [sTitles]
    
-   # Default asset Files of View|TiddlyWiki Template
-   put view_GetTemplateObject ("View|TiddlyWiki") into tiddlyTemplate
-   put the module_ShortHtmlFiles of tiddlyTemplate into LocalArray ["mFiles"]
+   put the tiddly_ListTitles of tiddlyView into LocalArray [sTitles]
+   put _ShortTiddlyFIles() into LocalArray ["mFiles"]
    
    return tiddlyView
 end menu_Target
+
+private function _ShortTiddlyTemplates
+   # Default asset Files of View|TiddlyWiki Template
+   put view_GetTemplateObject ("View|TiddlyWiki") into tiddlyTemplate
+   put the module_ShortHtmlFiles ["template"] of tiddlyTemplate into tFiles
+   return tFiles
+end _ShortTiddlyTemplates
+
+private function _ShortTiddlyFIles
+   # Default asset Files of View|TiddlyWiki Template
+   put view_GetTemplateObject ("View|TiddlyWiki") into tiddlyTemplate
+   put the module_ShortHtmlFiles of tiddlyTemplate into mFiles
+   return mFiles
+end _ShortTiddlyFIles
 
 getprop menu_CheckTarget [tiddlyView]
    return exists (tiddlyView)
@@ -41,9 +53,17 @@ end menu_CheckTarget
 
 --> Global | TiddlyWiki | Menu
 -
-on menu_LoadGettingStarted tiddlyView
-   set the browser_URL of tiddlyView to "https://tiddlywiki.com/#GettingStarted"
-end menu_LoadGettingStarted
+on menu_TiddlyWeb tiddlyView
+   put "https://tiddlywiki.com/#GettingStarted" into sURL
+   if the shiftkey is not "Down" then
+      display_TiddlyWiki sURL
+   else
+      set the browser_URL of tiddlyView to sURL
+   end if
+end menu_TiddlyWeb
+
+private on _
+end _
 
 on menu_TiddlyWiki tiddlyView, shortFile
    -- put the browser_File of tiddlyView into htmlFile
@@ -52,12 +72,10 @@ on menu_TiddlyWiki tiddlyView, shortFile
    if there is not a file htmlFile then breakpoint
    --
    if the shiftkey is "Down" then
-      
+      display_TiddlyWiki shortFile
    else
       set the browser_File of tiddlyView to htmlFile
-      --
       set the stack_Label of tiddlyView to shortFile
-      -- put the tiddly_Title of tiddlyView
    end if
 end menu_TiddlyWiki
 
@@ -73,8 +91,18 @@ getprop tiddlywiki_Params
    return shortFiles
 end tiddlywiki_Params
 
-private on ____
-end ____
+on menu_TiddlyTemplate tiddlyView, shortFile
+   display_TiddlyTemplate shortFile
+end menu_TiddlyTemplate
+
+getprop tiddlyTemplate_Params
+   put _ShortTiddlyTemplates() into shortFiles
+   filter shortFiles with "*.html"
+   return shortFiles
+end tiddlyTemplate_Params
+
+private on __
+end __
 
 on menu_ShowTiddler tiddlyView, sTitle
    if the tiddler_IsShowing [sTitle] of tiddlyView is true then
@@ -87,7 +115,7 @@ end menu_ShowTiddler
 getprop disabled_ShowTiddler [tiddlyView]
    return LocalArray [sTitles] is empty
 end disabled_ShowTiddler
-   
+
 getprop showTiddler_Param [tiddlyView]
    return the tiddly_StoryTitles of tiddlyView
 end showTiddler_Param
@@ -107,16 +135,15 @@ getprop disabled_ShowTiddler [tiddlyView]
       return false
    end if
 end disabled_ShowTiddler
-   
+
 getprop deleteTiddler_Params [tiddlyView]
    return LocalArray [sTitles]
 end deleteTiddler_Params
 
-on menu_DisplayModuleText tiddlyView
-   put the tiddler_Text ["Module"] of tiddlyView
-end menu_DisplayModuleText
+private on ___
+end ___
 
-on menu_CreateModuleTiddler tiddlyView
+on menu_CreateModuleTiddlers tiddlyView
    put the stack_Label of tiddlyView into sLabel
    put word 1 to -2 of sLabel into moduleName
    --
@@ -137,14 +164,9 @@ on menu_CreateModuleTiddler tiddlyView
    --
    -- put the stackFile_Array of stack moduleName into stackFileArray
    put moduleArray ["stackFileArray"] into stackFileArray
-   
-   -- display_Data stackFileArray, moduleName, "Module StackFileArray"
    put keys (stackFileArray) into stackNames
    
    # Set and Display
-   -- put markdown_LinkedBullets (stackNames) into moduleStackBullets
-   -- put tiddly_Bullets (stackNames) into moduleStackBullets
-   -- set the tiddler_Markdown ["Module"] of tiddlyView to moduleStackBullets
    set the tiddler_Bullets ["Module"] of tiddlyView to stackNames
    
    repeat for each key stackName in stackFileArray
@@ -161,88 +183,64 @@ on menu_CreateModuleTiddler tiddlyView
          set the tiddler_Bullets [stackName] of tiddlyView to hIndex
       end if
    end repeat
-end menu_CreateModuleTiddler
+end menu_CreateModuleTiddlers
 
-private on _
-end _
+private on ____
+end ____
 
-on menu_AddBrowserBehavior tiddlyView
-   set the module_AddBehavior of tiddlyView to "View|Browser"
-   edit the script of bObject
-end menu_AddBrowserBehavior
-
-getprop checked_AddBrowserBehavior [tiddlyView]
-   get the behavior_StackNames of tiddlyView
-   return "behavior_ViewBrowser" is among the lines of it
-end checked_AddBrowserBehavior
-
-private on __
-end __
-
-on menu_TiddlerText tiddlyView, tiddlerTitle
-   put the tiddler_Text [tiddlerTitle] of tiddlyView into tiddlerText
-   --
-   display_Text tiddlerText, tiddlerTitle
-end menu_TiddlerText
-
-getprop tiddlerText_Params [tiddlyView]
-   return LocalArray [sTitles]
-end tiddlerText_Params
-
-on menu_TiddlerArray tiddlyView, tiddlerTitle
-   put the tiddler_Array [tiddlerTitle] of tiddlyView into tiddlerArray
-   --
-   display_Data tiddlerArray, tiddlerTitle, "Tiddler Array"
-end menu_TiddlerArray
-
-getprop tiddlerArray_Params [tiddlyView]
-   return LocalArray [sTitles]
-end tiddlerArray_Params
-
-on menu_DisplayTiddlyData tiddlyView, sTag
-   if sTag = "All" then
-      put the tiddly_Data of tiddlyView into tiddlerData
+on menu_Launch tiddlyView
+   put the browser_URL of tiddlyView into sURL
+   if sURL is empty then
+      put the browser_File of tiddlyView into sFile
+      put browser_AppPath() into appPath
+      launch sFile with appPath
+      set the clipboardData to sFile
    else
-      put the tiddly_Data [sTag] of tiddlyView into tiddlerData
+      launch url sURL
+      set the clipboardData to sURL
    end if
+end menu_Launch
+
+on menu_Kara
+   display_TiddlyWiki "https://kookma.github.io/TW-Kara/#"
+end menu_Kara
+
+on menu_TodoList
+   display_TiddlyWiki "https://kookma.github.io/TW-Todolist/#Install"
+end menu_TodoList
+
+on menu_Projectify
+   display_TiddlyWiki "https://thaddeusjiang.github.io/Projectify/demo.html"
+end menu_Projectify
+
+on menu_TwScripts
+   display_TiddlyWiki "https://kookma.github.io/TW-Scripts/"
+end menu_TwScripts
+
+on menu_Mermaid
+   display_TiddlyWiki "https://efurlanm.github.io/mermaid-tw5/"
+end menu_Mermaid
+
+on menu_Reveal
+   display_TiddlyWiki "https://sukima.github.io/tiddlywiki-reveal-js/"
+end menu_Reveal
+
+private on _____
+end _____
+
+on menu_IcoMoon
+   put "https://icomoon.io/app/#/select" into someURL
    --
-   display_Data tiddlerData, "the tiddly_Data", "Tiddly Wiki"
-end menu_DisplayTiddlyData
+   if the shiftKey is "down" then
+      display_Template "View|Browser"
+   else
+      display_Browser someURL
+   end if
+end menu_IcoMoon
 
-getprop displayTiddlyData_Params [tiddlyView]
-   return the tiddly_Tags of tiddlyView & ",-,All"
-end displayTiddlyData_Params
-
-private on ___
-end ___
-
-on menu_EditHtml tiddlyView
-   -- file:///Users/david/Documents/git-repos/LiveCodeWorld/lcw_P2P/modules/View_TiddlyWiki/assets/index.html
-   put the url of tiddlyView into sURL
-   get char 1 to 8 of sURL
-   if it is not "file:///" then lcw_AnswerWarning "Not a file..."
-   put char 9 to -1 of sURL into htmlFile
-   --
-   code_EditFile htmlFile
-end menu_EditHtml
-
-on menu_RevealViewFolder tiddlyView
-   put the module_Folder of tiddlyView into moduleFolder
-   finder_Reveal moduleFolder
-end menu_RevealViewFolder
-
-on menu_DisplayWikiJson tiddlyView
-   put the tiddly_JSON of tiddlyView into tiddlerJSON
-   --
-   display_Json tiddlerJSON, "the tiddly_JSON"
-end menu_DisplayWikiJson
-
-on menu_TiddlyHelp tiddlyView
-   display_WikiPage "livecode.world", "tiddlywiki"
-end menu_TiddlyHelp
-
-private on __
-end __
+on menu_Refresh tiddlyView
+   dispatch "preOpenControl" to tiddlyView
+end menu_Refresh
 
 on submenu_Dev
    return menu_DevTitle ("Global | TiddlyWiki | Menu")

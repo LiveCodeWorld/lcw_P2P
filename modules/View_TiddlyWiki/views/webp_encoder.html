@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>WebP Animation Encoder</title>
+        <script src="https://unpkg.com/webp-wasm@1.0.0/webp-wasm.js"></script>
+        <script>
+            async function encodeAnimatedWebP(images) {
+                const webp = await WebPDecoder();
+                const imageBuffers = images.map(img => Uint8Array.from(atob(img), c => c.charCodeAt(0)));
+                const result = webp.encodeAnimated(imageBuffers, 10); // 10ms delay between frames
+                const dataUri = 'data:image/webp;base64,' + result;
+                document.body.innerHTML = '<h2>Animated WebP Generated</h2><img src="' + dataUri + '" />';
+                window.livecodeCallback(result);
+            }
+        </script>
+    </head>
+    <body>
+        <h1>WebP Animation Encoder Ready</h1>
+    </body>
+</html>
