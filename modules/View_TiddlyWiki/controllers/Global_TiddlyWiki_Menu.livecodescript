@@ -14,7 +14,8 @@ Full help text should be provided on the linked wiki.*/
 --> Variables
 -
 local LocalArray
-
+constant ReadMePage = "Wikis with Readme"
+constant LiveCodePluginTitle = "$:/plugins/LiveCode/wikiscript"
 
 --> Menu | Props
 -
@@ -26,7 +27,7 @@ getprop menu_Target [tObject]
       put tObject into tiddlyView
    end if
    
-   put the tiddly_ListTitles of tiddlyView into LocalArray [sTitles]
+   put the tiddly_ListTitles of tiddlyView into LocalArray ["sTitles"]
    put _ShortTiddlyFIles() into LocalArray ["mFiles"]
    
    return tiddlyView
@@ -53,14 +54,24 @@ end menu_CheckTarget
 
 --> Global | TiddlyWiki | Menu
 -
-on menu_TiddlyWeb tiddlyView
-   put "https://tiddlywiki.com/#GettingStarted" into sURL
-   if the shiftkey is not "Down" then
-      display_TiddlyWiki sURL
-   else
-      set the browser_URL of tiddlyView to sURL
-   end if
-end menu_TiddlyWeb
+on menu_OpenReadme tiddlyView, rName
+   put env_ReadmeNameArray() into nameArray
+   put nameArray [rName] into tiddlyFile
+   --
+   display_TiddlyFile tiddlyFile
+end menu_OpenReadme
+
+getprop openReadme_Params
+   put env_ReadmeNameArray() into nameArray
+   put keys (nameArray) into rNames
+   sort rNames
+   return rNames
+end openReadme_Params
+
+on submenu_TiddlyPlugins
+   -- return "Global | TiddlyWiki | Plugins | Menu"
+   return the menu_CreateTitle ["Plugins"] of me
+end submenu_TiddlyPlugins
 
 private on _
 end _
@@ -72,7 +83,7 @@ on menu_TiddlyWiki tiddlyView, shortFile
    if there is not a file htmlFile then breakpoint
    --
    if the shiftkey is "Down" then
-      display_TiddlyWiki shortFile
+      display_TiddlyFile htmlFile
    else
       set the browser_File of tiddlyView to htmlFile
       set the stack_Label of tiddlyView to shortFile
@@ -113,7 +124,7 @@ on menu_ShowTiddler tiddlyView, sTitle
 end menu_ShowTiddler
 
 getprop disabled_ShowTiddler [tiddlyView]
-   return LocalArray [sTitles] is empty
+   return LocalArray ["sTitles"] is empty
 end disabled_ShowTiddler
 
 getprop showTiddler_Param [tiddlyView]
@@ -121,7 +132,7 @@ getprop showTiddler_Param [tiddlyView]
 end showTiddler_Param
 
 getprop showTiddler_Params [tiddlyView]
-   return LocalArray [sTitles]
+   return LocalArray ["sTitles"]
 end showTiddler_Params
 
 on menu_DeleteTiddler tiddlyView, sTitle
@@ -129,7 +140,7 @@ on menu_DeleteTiddler tiddlyView, sTitle
 end menu_DeleteTiddler
 
 getprop disabled_ShowTiddler [tiddlyView]
-   if LocalArray [sTitles] is empty then
+   if LocalArray ["sTitles"] is empty then
       return "delete"
    else
       return false
@@ -137,11 +148,33 @@ getprop disabled_ShowTiddler [tiddlyView]
 end disabled_ShowTiddler
 
 getprop deleteTiddler_Params [tiddlyView]
-   return LocalArray [sTitles]
+   return LocalArray ["sTitles"]
 end deleteTiddler_Params
 
 private on ___
 end ___
+
+on menu_ReadmeTiddler tiddlyView
+   put the tiddler_Exists [ReadMePage] of tiddlyView into tExists
+   if (tExists is false) OR the shiftKey is "down" then
+      put env_ListReadmeNames() into readmeNames
+      set the tiddler_Bullets [ReadMePage] of tiddlyView to readmeNames
+   end if
+   set the show_Tiddler of tiddlyView to ReadMePage
+end menu_ReadmeTiddler
+
+getprop checked_ReadmeTiddler [tiddlyView]
+   return ReadMePage is among the lines of LocalArray ["sTitles"]
+end checked_ReadmeTiddler
+
+on menu_LiveCodePlugin tiddlyView
+   set the tiddler_Plugin [LiveCodePluginTitle] of tiddlyView to "WikiScript"
+   set the show_Tiddler of tiddlyView to LiveCodePluginTitle
+end menu_LiveCodePlugin
+
+getprop checked_LiveCodePlugin [tiddlyView]
+   return the tiddler_Exists [LiveCodePluginTitle] of tiddlyView
+end checked_LiveCodePlugin
 
 on menu_CreateModuleTiddlers tiddlyView
    put the stack_Label of tiddlyView into sLabel
@@ -201,46 +234,24 @@ on menu_Launch tiddlyView
    end if
 end menu_Launch
 
-on menu_Kara
-   display_TiddlyWiki "https://kookma.github.io/TW-Kara/#"
-end menu_Kara
-
-on menu_TodoList
-   display_TiddlyWiki "https://kookma.github.io/TW-Todolist/#Install"
-end menu_TodoList
-
-on menu_Projectify
-   display_TiddlyWiki "https://thaddeusjiang.github.io/Projectify/demo.html"
-end menu_Projectify
-
-on menu_TwScripts
-   display_TiddlyWiki "https://kookma.github.io/TW-Scripts/"
-end menu_TwScripts
-
-on menu_Mermaid
-   display_TiddlyWiki "https://efurlanm.github.io/mermaid-tw5/"
-end menu_Mermaid
-
-on menu_Reveal
-   display_TiddlyWiki "https://sukima.github.io/tiddlywiki-reveal-js/"
-end menu_Reveal
-
-private on _____
-end _____
-
-on menu_IcoMoon
-   put "https://icomoon.io/app/#/select" into someURL
-   --
-   if the shiftKey is "down" then
-      display_Template "View|Browser"
-   else
-      display_Browser someURL
-   end if
-end menu_IcoMoon
+on menu_Recolour tiddlyView
+   set the card_Colour of tiddlyView to "random"
+end menu_Recolour
 
 on menu_Refresh tiddlyView
    dispatch "preOpenControl" to tiddlyView
 end menu_Refresh
+
+on menu_FullScreen tiddlyView
+   put the stack_Name of tiddlyView into sName
+   put the fullscreen of stack sName into isFullScreen
+   set the fullscreen of stack sName to (isFullScreen is false)
+end menu_FullScreen
+
+getprop checked_FullScreen [tiddlyView]
+   put the stack_Name of tiddlyView into sName
+   return the fullscreen of stack sName
+end checked_FullScreen
 
 on submenu_Dev
    return menu_DevTitle ("Global | TiddlyWiki | Menu")

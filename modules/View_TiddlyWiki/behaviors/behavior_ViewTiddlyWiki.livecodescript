@@ -13,20 +13,49 @@ Full help text can be found on the linked wiki for the view.*/
 local LocalArray
 constant NotificationTemplate = "$:/temp/NotificationTemplate"
 
-
---> JS
+--> Working on
 -
-getprop js_Result
-   return LocalArray ["sResult"]
-end js_Result
+setprop tiddler_Plugin [pluginTitle] scaffoldName
+   if pluginTitle is empty then put the ticks into pluginTitle
+   
+   put scaffold_Get (scaffoldName) into tiddlerJavascript
+   -- set the tiddler_Text [pluginTitle] of me to tiddlerJavascript
+   -- return the result
+   
+   put tiddler_GetPluginJavascript (scaffoldName, pluginTitle) into sJavascript
+   do sJavascript in me
+   put the result into sResult
+   return sResult
+end tiddler_Plugin
 
-setprop js_Result sResult
-   javascript_Result sResult
-end js_Result
+function tiddler_GetPluginJavascript scaffoldName, pluginTitle
+   # Get javascript template
+   put scaffold_Get (scaffoldName) into tiddlerJavascript
+   _Normalize tiddlerJavascript
+   -- put "hello" into tiddlerJavascript
+   
+   set the tiddler_Text [pluginTitle] of tiddlyView to "WikiScript"
+   
+   # Send the content with actual newlines directly (no escaping)
+   -- && "fields: {'module-type': 'widget'}," \
+   -- && "type: 'application/javascript'," \
+   
+   get "$tw.wiki.addTiddler(new $tw.Tiddler({" \
+         & "title: '[[pluginTitle]]'," \
+         && "text: `" & tiddlerJavascript \
+         & "`}));"
+   return merge (it)
+   
+   /*
+   # Update the tiddler to be a JavaScript tiddler with custom fields
+   get"var tiddler = new $tw.Tiddler({title: '[[pTitle]]', text: '" \
+         & tiddlerJavascript \
+         & "', type: 'application/javascript', fields: {'module-type': 'widget'}});"
+   & "$tw.wiki.addTiddler(tiddler);"
+   put merge (it) into sJavascript
+   */
+end tiddler_GetPluginJavascript
 
-
---> Events | Javascript
--
 on tiddlyButton_Call sMessage
    local sResult
    switch sMessage
@@ -39,13 +68,49 @@ on tiddlyButton_Call sMessage
       default
          put "Unknown message: " & sMessage into sResult
    end switch
-
-   -- Update the "test" tiddler with the result
+   
+   # Update the "test" tiddler with the result
    put "var tiddler = new $tw.Tiddler({title: 'test', text: '" & sResult & "', type: 'text/plain'});" & \
-       "$tw.wiki.addTiddler(tiddler);" into sJavascript
+         "$tw.wiki.addTiddler(tiddler);" into sJavascript
    do sJavascript in me
+   
+   # Show test tiddler
+   set the show_Tiddler of me to "test"
 end tiddlyButton_Call
 
+
+--> JS
+-
+getprop js_Result
+   return LocalArray ["sResult"]
+end js_Result
+
+setprop js_Result sResult
+   javascript_Result sResult
+end js_Result
+
+getprop card_Colour
+   put the card_Object of me to cObject
+   put the backgroundColor of cObject into sColour
+   return sColour
+end card_Colour
+
+setprop card_Colour sColour
+   put the card_Object of me into cObject
+   switch sColour
+      case "random"
+         put colour_GetRandom() into sColour
+         break
+      default
+         -- can check for stuff
+   end switch
+   set the backgroundColor of cObject to sColour
+   return sColour
+end card_Colour
+
+
+--> Events | Javascript
+-
 on javascript_Result sResult
    -- requires "javascript_Result" to be among the lines of the javascripthandlers of me
    -- Generic handler used to return result to "getprop"
@@ -146,29 +211,118 @@ on browserUnhandledLoadRequest blobUrl
       set the blob_URl of me to blobUrl
       
       # Export HTML
-      put _GetBlobData (blobUrl) into tHtmlContent
+      put _GetBlobData (blobUrl) into sContent
+      --
+      get line 1 to 10 of sContent
       switch
-         case the number of chars of tHtmlContent <200
-         case tHtmlContent is "[]"
-         case tHtmlContent is empty
+         -- case the number of chars of tHtmlContent <200
+         case sContent is "[]"
+         case sContent is empty
             breakpoint
-            put the browser_File of me into sFile
-            return "Error, saving html file:" && sFile
-         default
+            tiddly_Init
+            
             # Export JSON
             put the tiddly_JSON of me into tiddlyJSON
-            _ExportTiddlyJson tiddlyJSON
-            
-            _SaveText tHtmlContent -- , "test_Export.html"
+            -- _ExportTiddlyJson tiddlyJSON -- when it is robust
+            --
+            put the browser_File of me into sFile
+            return "Error, saving html file:" && sFile
+         case char 1 of sContent = "["
+            _ExportTiddlerJson sContent
+            break
+         case item 1 of it = kwote ("title")
+            _ExportCsvTiddler sContent
+            break
+         case it contains "<!-- The following comment is called a MOTW comment and is necessary for the TiddlyIE Internet Explorer extension -->"
+            _ExportFullTiddlyHtml sContent
+            break
+         case it contains "<!doctype html>"
+            _ExportHtmlTiddler sContent
+            break
+         default
+            breakpoint
       end switch
    else
       -- Handle normal URLs
       put "URL not recognized as a Blob URL"
+      breakpoint
    end if
 end browserUnhandledLoadRequest
 
+private command _ExportHtmlTiddler sContent
+   -- tw is exporting json
+   put "tiddler.html" into dPath
+   ask file "Let's export plain html tiddler?" with dPath as sheet
+   if it is empty then return empty
+   --
+   put it into sFile
+   text_Set sFile, sContent
+   --
+   put "Exported HTML Tiddler" && dPath into sNotification
+   set the tiddly_Notification of me to sNotification
+end _ExportHtmlTiddler
 
---> Working on
+private command _ExportCsvTiddler sContent
+   -- tw is exporting csv
+   put "tiddler.csv" into dPath
+   ask file "Let's export csv tiddler?" with dPath as sheet
+   if it is empty then return empty
+   --
+   put it into sFile
+   text_Set sFile, sContent
+   --
+   put "Exported CSV Tiddler" && dPath into sNotification
+   set the tiddly_Notification of me to sNotification
+end _ExportCsvTiddler
+
+private command _ExportTiddlerJson sContent
+   -- tw is exporting json
+   put "tiddler.json" into dPath
+   ask file "Let's export some json?" with dPath as sheet
+   if it is empty then return empty
+   --
+   put it into sFile
+   text_Set sFile, sContent
+   --
+   put "Exported json Tiddler" && dPath into sNotification
+   set the tiddly_Notification of me to sNotification
+end _ExportTiddlerJson
+
+private command _ExportFullTiddlyHtml sContent
+   # Also Export all content JSON
+   put the tiddly_JSON of me into tiddlyJSON
+   _ExportTiddlyJson tiddlyJSON
+   if item 1 of the result is "Error" then
+      lcw_Notify the result
+      -- breakpoint
+   end if
+   
+   get line 1 to 10 of sContent -- for debugging
+   _SaveText sContent
+end _ExportFullTiddlyHtml
+
+private command _ExportTiddlyJson tiddlyJSON
+   if char 1 to 2 of tiddlyJSON is not "[{" then
+      return "Error, not a json file"
+   end if
+   put json_ToArray (tiddlyJSON) into tiddlyArray
+   if tiddlyArray is not an array then
+      breakpoint
+      return "Error, could not parse a json file"
+   end if
+   
+   put the browser_File of me into sFile
+   set the itemdelimiter to slash
+   put item -1 of sFile into shortFile
+   set the itemdelimiter to "."
+   put item 1 of shortFile & ".json" into jsonShortFile
+   
+   _SaveText tiddlyJSON, jsonShortFile
+   return the result
+end _ExportTiddlyJson
+
+
+--> Tiddler
 -
 getprop tiddler_Text [pTiddlerTitle]
    get the tiddler_Exists [tTitle] of me -- otherwise crashes
@@ -331,17 +485,6 @@ private command _SaveText sText, pShortFile
    return sFile
 end _SaveText
 
-private command _ExportTiddlyJson tiddlyJSON
-   put the browser_File of me into sFile
-   set the itemdelimiter to slash
-   put item -1 of sFile into shortFile
-   set the itemdelimiter to "."
-   put item 1 of shortFile & ".json" into jsonShortFile
-   
-   _SaveText tiddlyJSON, jsonShortFile
-   return the result
-end _ExportTiddlyJson
-
 private command _DisplayNotificationTiddler
    put merge ("$tw.notifier.display('[[NotificationTemplate]]');") into sJavascript
    
@@ -352,7 +495,7 @@ end _DisplayNotificationTiddler
 
 private command _AddNotificationTiddler sMessage
    -- put "Don't Panic!" into sMessage
-   put "Template Notif()ication Hitchhikers" into tagWords
+   put "Template Notification Hitchhikers" into tagWords
    get "$tw.wiki.addTiddler(new $tw.Tiddler({title: '[[NotificationTemplate]]',text: '[[sMessage]]',tags: '[[tagWords]]'}));"
    put merge (it) into sJavascript
    
@@ -607,10 +750,10 @@ end tiddler_Exists
 setprop tiddler_Text [pTitle] sContent
    if pTitle is empty then put the ticks into pTitle
    
-   -- Normalize to ensure safe JavaScript string handling but preserve line breaks
+   # Normalize to ensure safe JavaScript string handling but preserve line breaks
    _Normalize sContent
    
-   -- Send the content with actual newlines directly (no escaping)
+   # Send the content with actual newlines directly (no escaping)
    get merge ("$tw.wiki.addTiddler(new $tw.Tiddler({title: '[[pTitle]]', text: `" & sContent & "`}));")
    do it in me
    put the result into sResult
@@ -941,3 +1084,14 @@ private command _NormalizeTitle @pTitle
    
    return pTitle
 end _NormalizeTitle
+
+
+--> Deps
+-
+private function colour_GetRandom
+   -- was "randomColour"
+   put random(255) into item 1 of someColour
+   put random(255) into item 2 of someColour
+   put random(255) into item 3 of someColour
+   return someColour
+end colour_GetRandom
