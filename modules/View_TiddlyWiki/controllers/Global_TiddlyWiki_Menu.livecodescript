@@ -51,9 +51,71 @@ getprop menu_CheckTarget [tiddlyView]
    return exists (tiddlyView)
 end menu_CheckTarget
 
+getprop guide_Name [pReverse]
+   return _GuideName(dView, pReverse)
+end guide_Name
+
+private function _GuideName dView, pReverse
+   put the stack_Name of dView into moduleLabel
+   put the stack_Label of dView into relModulePath
+   --
+   put label_ToViewName (moduleLabel, pReverse) into moduleName
+   return moduleName
+end _GuideName
+
+getprop guide_Array
+   put the module_Array of the target into moduleArray
+   if moduleArray is not an array then
+      put module_ConstructArray (moduleFolder) into moduleArray
+      breakpoint
+      set the module_Array of stack moduleName to moduleArray
+   end if
+   --
+   -- put the stackFile_Array of stack moduleName into stackFileArray
+   put moduleArray ["stackFileArray"] into stackFileArray
+   return stackFileArray
+end guide_Array
+
 
 --> Global | TiddlyWiki | Menu
 -
+on menu_DraftAbout tiddlyView
+   put _GuideName (tiddlyView) into moduleName
+   if exists (stack moduleName) is false then
+      breakpoint
+      exit to top
+   end if
+   
+   put the project_Name of stack moduleName into projectName
+   put the project_Folder of stack moduleName into projectFolder
+   
+   put scaffold_Get ("Guide: About") into mTemplate
+   put merge (mTemplate) into aboutText
+   --
+   set the tiddler_Text ["ProjectName"] of tiddlyView to projectName
+   set the tiddler_Text ["About"] of tiddlyView to aboutText
+end menu_DraftAbout
+
+on menu_GoToWiki tiddlyView, stackName
+   go to stack stackName
+end menu_GoToWiki
+
+getprop goToWiki_Params
+   put stack_ListNames("Project *") into myMenu
+   if myMenu is not empty then
+      put CR & "-" after myMenu
+   end if
+   get stack_ListNames("Module *")
+   if it is not empty then
+      if myMenu is empty then
+         return it
+      else
+         put CR & it after myMenu
+         return myMenu
+      end if
+   end if
+end goToWiki_Params
+
 on menu_OpenReadme tiddlyView, rName
    put env_ReadmeNameArray() into nameArray
    put nameArray [rName] into tiddlyFile
@@ -177,26 +239,22 @@ getprop checked_LiveCodePlugin [tiddlyView]
 end checked_LiveCodePlugin
 
 on menu_CreateModuleTiddlers tiddlyView
-   put the stack_Label of tiddlyView into sLabel
-   put word 1 to -2 of sLabel into moduleName
-   --
-   -- put the project_Array of stack moduleName into projectArray
-   --
    put the browser_File of tiddlyView into tiddlyFile
+   put the guide_Name of tiddlyView into moduleName
+   if exists (stack moduleName) is false then
+      breakpoint
+      exit to top
+   end if
+   
    set the itemdelimiter to slash
    put item 1 to -2 of tiddlyFile & slash into moduleFolder
-   if there is not a folder moduleFolder then return empty
-   --
-   put the module_Array of stack moduleName into moduleArray
-   if moduleArray is not an array then
-      -- put the module_ConstructArray of stack moduleName into moduleArray
-      put module_ConstructArray (moduleFolder) into moduleArray
+   if there is not a folder moduleFolder then
       breakpoint
-      set the module_Array of stack moduleName to moduleArray
+      exit to top
    end if
-   --
-   -- put the stackFile_Array of stack moduleName into stackFileArray
-   put moduleArray ["stackFileArray"] into stackFileArray
+   
+   # Get GuideArray = stackFileArray (for now)
+   put the guide_Array of tiddlyView into stackFileArray
    put keys (stackFileArray) into stackNames
    
    # Set and Display
@@ -253,6 +311,12 @@ getprop checked_FullScreen [tiddlyView]
    return the fullscreen of stack sName
 end checked_FullScreen
 
+on menu_RevealReadme tiddlyView
+   put the browser_File of tiddlyView into tiddlyFile
+   finder_Reveal tiddlyFile
+end menu_RevealReadme
+
 on submenu_Dev
    return menu_DevTitle ("Global | TiddlyWiki | Menu")
 end submenu_Dev
+

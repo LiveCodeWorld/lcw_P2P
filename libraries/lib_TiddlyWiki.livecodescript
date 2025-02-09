@@ -14,17 +14,95 @@ A library to help organise multiple TiddlyWiki's
 --> Variables
 -
 constant TiddlyModuleName = "View|TiddlyWiki"
+constant DefaultShortTemplate = "empty.html"
 
 
 --> Working on
 -
+function readme_GetColour readMeFile
+   -- we want to use the flag colour
+   put "random" into sColour
+   return sColour
+end readme_GetColour
+
+command display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
+   if pFullScreen is empty then put the shiftKey is "Down" into pFullScreen
+   --
+   put tiddly_ReadmeLabelFromUrl (tiddlyURL) into readmeLabel
+   --
+   put readme_GetColour (tiddlyURL) into cardColour
+   --
+   set the itemdelimiter to slash   
+   put item -2 to -1 of tiddlyURL into subTitle
+   put word 1 to -2 of readmeLabel into tiddlyTitle
+   
+   # Display
+   switch
+      case exists (pTiddlyView)
+         put pTiddlyView into tiddlyView
+         set the browser_URL of tiddlyView to tiddlyURL
+         -- set the stack_Label of tiddlyView to subTitle
+         break
+      case exists (stack readmeLabel)
+         go to stack readmeLabel
+         put the tiddly_View of this cd into tiddlyView
+         break
+      default
+         display_CloneModule TiddlyModuleName, tiddlyURL, subTitle, "browser_URL", "toplevel", readmeLabel, 20, cardColour
+         put the result into tiddlyView
+   end switch
+   
+   
+   put the stack_Name of tiddlyView into stackName -- should already be set
+   --- put tiddly_StackNameToLabel (stackName) into tiddlyLabel
+   set the tiddly_Title [subTitle] of tiddlyView to tiddlyTitle
+   if pFullScreen is true then
+      set the fullscreen of stack stackName to true
+   end if
+   
+   return tiddlyView
+end display_TiddlyURL
+
+command tiddly_CreateModuleReadMe moduleName, pShortFile
+   put tiddly_DefaultFile (pShortFile) into tiddlyDefaultFile
+   if there is not a file tiddlyDefaultFile then
+      breakpoint
+      put tiddly_DefaultFile() into tiddlyDefaultFile
+   end if
+   put module_ConstructReadMeFile (moduleName) into readMeFile
+   --
+   revCopyFile tiddlyDefaultFile, readMeFile
+   if the result is empty then
+      return readMeFile
+   else
+      return "Error, failed to create file:" && readMeFile
+   end if
+end tiddly_CreateModuleReadMe
+
+command tiddly_CreateProjectReadMe projectName, pShortFile
+   put tiddly_DefaultFile (pShortFile) into tiddlyDefaultFile
+   if there is not a file tiddlyDefaultFile then
+      breakpoint
+      put tiddly_DefaultFile() into tiddlyDefaultFile
+   end if
+   put project_ConstructReadMeFile (projectName) into readMeFile
+   --
+   revCopyFile tiddlyDefaultFile, readMeFile
+   if the result is empty then
+      return readMeFile
+   else
+      return "Error, failed to create file:" && readMeFile
+   end if
+end tiddly_CreateProjectReadMe
+
+
 --> Props
 -
 getprop readMe_File
    put the module_Folder of the target into moduleFolder
    --
    if there is a folder moduleFolder then
-      put moduleFolder & "readme.html" into readMeFile
+      put moduleFolder & "README.html" into readMeFile
    else
       return the project_ReadmeFile of the target
    end if
@@ -34,7 +112,7 @@ end readMe_File
 getprop module_ReadMeFile
    put the module_Folder of the target into moduleFolder
    --
-   put moduleFolder & "readme.html" into readMeFile
+   put moduleFolder & "README.html" into readMeFile
    return readMeFile
 end module_ReadMeFile
 
@@ -64,35 +142,6 @@ end tiddly_Behavior
 
 --> Display
 -
-command display_TiddlyWiki sFileOrUrl, pTiddlyView, pFullScreen
-   set the itemdelimiter to slash
-   put url_GetProtocol (sFileOrUrl) into sProtocol
-   switch
-      case sProtocol is among the items of "http/https"
-         put sFileOrUrl into tiddlyURL
-         display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen, pStackLabel
-         break
-      case the number of items of sFileOrUrl = 1
-         put tiddly_File (sFileOrUrl) into tiddlyFile
-         display_TiddlyFile tiddlyFile, pTiddlyView, pFullScreen, pReadmeLabel
-         break
-      default
-         put sFileOrUrl into tiddlyFile
-         display_TiddlyFile tiddlyFile, pTiddlyView, pFullScreen, pReadmeLabel
-   end switch
-   put the result into tiddlyView
-   return tiddlyView
-end display_TiddlyWiki
-
-command display_TiddlyTemplate shortTemplateFile, pTiddlyView, pFullScreen
-   put tiddly_TemplateFile (shortTemplateFile) into tFile
-   
-   # Display tiddlyView create if it doesnt exist
-   display_TiddlyFile tFile, pTiddlyView, pFullScreen, shortTemplateFile
-   put the result into tiddlyView
-   return tiddlyView
-end display_TiddlyTemplate
-
 command edit_TiddlyHtml
    -- put the tempname & ".html" into sPath
    put the browser_File [true] of the target into sFile
@@ -103,85 +152,86 @@ command edit_TiddlyHtml
    code_EditFile sPath
 end edit_TiddlyHtml
 
+command display_TiddlyWiki sFileOrUrl, pTiddlyView, pFullScreen
+   set the itemdelimiter to slash
+   put url_GetProtocol (sFileOrUrl) into sProtocol
+   switch
+      case sProtocol is among the items of "http/https"
+         put sFileOrUrl into tiddlyURL
+         display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
+         break
+      case the number of items of sFileOrUrl = 1
+         put tiddly_File (sFileOrUrl) into tiddlyFile
+         display_TiddlyFile tiddlyFile, pTiddlyView, pFullScreen
+         break
+      default
+         put sFileOrUrl into tiddlyFile
+         display_TiddlyFile tiddlyFile, pTiddlyView, pFullScreen
+   end switch
+   put the result into tiddlyView
+   return tiddlyView
+end display_TiddlyWiki
+
+command display_TiddlyTemplate shortTemplateFile, pTiddlyView, pFullScreen
+   put tiddly_TemplateFile (shortTemplateFile) into tFile
+   
+   # Display tiddlyView create if it doesn't exist
+   display_TiddlyFile tFile, pTiddlyView, pFullScreen
+   put the result into tiddlyView
+   return tiddlyView
+end display_TiddlyTemplate
+
 command display_ProjectReadme projectName, pTiddlyView, pFullScreen
-   if pFullScreen is empty then put the shiftKey is "Up" into pFullScreen
+   if pFullScreen is empty then put the shiftKey is "Down" into pFullScreen
    --
    put project_ConstructReadMeFile (projectName) into readMeFile
-   if there is not a file readMeFile then
-      tiddly_CreateReadMe projectName, "projectify.html"
+   
+   # Create README if needed
+   put there is not a file readMeFile into needToCreate
+   if needToCreate then
+      tiddly_CreateProjectReadMe projectName, "projectify.html"
       put the result into readMeFile
       if there is not a file readMeFile then
          breakpoint
-         return "Error, could not create readme.html:" && readMeFile
+         return "Error, could not create README.html:" && readMeFile
       end if
    end if
    --
-   display_TiddlyFile readMeFile, pTiddlyView, pFullScreen, projectName
-   return the result
+   -- put label_FromProjectName (projectName) into tiddlyLabel
+   --
+   display_TiddlyFile readMeFile, pTiddlyView, pFullScreen
+   put the result into tiddlyView
+   return tiddlyView
 end display_ProjectReadme
 
 command display_ModuleReadme moduleName, pTiddlyView, pFullScreen
-   if pFullScreen is empty then put the shiftKey is "Up" into pFullScreen
+   if pFullScreen is empty then put the shiftKey is "Down" into pFullScreen
    --
-   # Create Readme
+   # Create README
    put module_ConstructReadMeFile (moduleName) into readMeFile
-   if there is not a file readMeFile then
-      tiddly_CreateReadMe moduleName, "projectify.html"
+   put there is not a file readMeFile into needToCreate
+   if needToCreate then
+      tiddly_CreateModuleReadMe moduleName, "projectify.html"
       put the result into readMeFile
       if there is not a file readMeFile then
          breakpoint
-         return "Error, could not create readme.html:" && readMeFile
+         return "Error, could not create README.html:" && readMeFile
       end if
    end if
    
-   display_TiddlyFile readMeFile, pTiddlyView, pFullScreen, moduleName
-   return the result
+   -- put label_FromModuleName (moduleName) into tiddlyLabel
+   --
+   display_TiddlyFile readMeFile, pTiddlyView, pFullScreen
+   put the result into tiddlyView
+   return tiddlyView
 end display_ModuleReadme
 
-command display_TiddlyFile readMeFile, pTiddlyView, pFullScreen, pReadmeLabel
-   # Tiddly Display Props
-   if pReadmeLabel is empty then
-      set the itemdelimiter to slash
-      put item -1 of readMeFile into pReadmeLabel
-   end if
-   put pReadmeLabel && "Readme" into stackLabel
-   
-   put "file:///" & readMeFile into tiddlyURL
-   display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen, stackLabel
+command display_TiddlyFile readMeFile, pTiddlyView, pFullScreen
+   put "file://" & readMeFile into tiddlyURL
+   display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
    put the result into tiddlyView
    return tiddlyView
 end display_TiddlyFile
-
-command display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen, pStackLabel
-   # Tiddly Display Props
-   put "ReadMe" into cloneName
-   put readme_GetColour (tiddlyURL) into cardColour
-   --
-   if pStackLabel is empty then
-      put tiddlyURL into pStackLabel
-   end if
-   if pFullScreen is empty then
-      put the shiftkey is "Down" into pFullScreen
-   end if
-   
-   # Display
-   switch
-      case exists (pTiddlyView)
-         put pTiddlyView into tiddlyView
-         --
-         set the browser_URL of tiddlyView to tiddlyURL
-         set the stack_Label of tiddlyView to pStackLabel
-      default
-         display_CloneModule TiddlyModuleName, tiddlyURL, pStackLabel, "browser_URL", "toplevel", cloneName, 20, cardColour
-         put the result into tiddlyView
-   end switch
-   --
-   if pFullScreen is true then
-      put the stack_Name of tiddlyView into sName
-      set the fullscreen of stack sName to true
-   end if
-   return tiddlyView
-end display_TiddlyURL
 
 
 --> Env
@@ -208,60 +258,9 @@ function env_ReadmeNameArray
    return nameArray
 end env_ReadmeNameArray
 
-private function _ListReadmeArray
-   put env_GetRepoFolder() into repoFolder
-   put folders (repoFolder) into shortFolders
-   set the itemdelimiter to slash
-   repeat for each line projectName in shortFolders
-      if char 1 of projectName = "." then next repeat
-      --
-      set the cursor to busy
-      put repoFolder & projectName & "/readme.html" into sFile
-      if there is a file sFile then
-         put sFile & CR after projectReadmeFiles
-         put projectName & CR after projectReadmeNames
-         put sFile into readmeData ["nameArray"][projectName]
-      end if
-      
-      put project_ListModuleFolders (projectName) into moduleFolders
-      repeat for each line moduleFolder in moduleFolders
-         set the cursor to busy
-         --
-         put moduleFolder & "readme.html" into sFile
-         if there is a file sFile then
-            put sFile & CR after moduleReadmeFiles
-            --
-            put item -1 of moduleFolder into moduleName
-            replace "_" with "|" in moduleName
-            put moduleName & CR after moduleReadmeNames
-            --
-            put sFile into readmeData ["nameArray"][moduleName]
-         end if
-      end repeat
-   end repeat
-   --
-   delete char -1 of projectReadmeNames
-   delete char -1 of projectReadmeFiles
-   delete char -1 of moduleReadmeNames
-   delete char -1 of moduleReadmeFiles
-   --
-   put projectReadmeNames into readmeData ["projectReadmeNames"]
-   put projectReadmeFiles into readmeData ["projectReadmeFiles"]
-   put moduleReadmeNames into readmeData ["moduleReadmeNames"]
-   put moduleReadmeFiles into readmeData ["moduleReadmeFiles"]
-   --
-   return readmeData
-end _ListReadmeArray
-
-function readme_GetColour readMeFile
-   -- we want to use the flag colour
-   put "random" into sColour
-   return sColour
-end readme_GetColour
-
 function project_ConstructReadMeFile projectName
    put project_GetFolder (projectName) into projectFolder
-   put projectFolder & "readme.html" into readMeFile
+   put projectFolder & "README.html" into readMeFile
    return readMeFile
 end project_ConstructReadMeFile
 
@@ -371,38 +370,6 @@ command tiddly_EditModuleReadme moduleName
    return readMeFile
 end tiddly_EditModuleReadme
 
-command tiddly_CreateModuleReadMe moduleName, pShortFile
-   put tiddly_DefaultFile (pShortFile) into tiddlyDefaultFile
-   if there is not a file tiddlyDefaultFile then
-      breakpoint
-      put tiddly_DefaultFile() into tiddlyDefaultFile
-   end if
-   put module_ConstructReadMeFile (moduleName) into readMeFile
-   --
-   revCopyFile tiddlyDefaultFile, readMeFile
-   if the result is empty then
-      return readMeFile
-   else
-      return "Error, failed to create file:" && readMeFile
-   end if
-end tiddly_CreateModuleReadMe
-
-command tiddly_CreateReadMe projectName, pShortFile
-   put tiddly_DefaultFile (pShortFile) into tiddlyDefaultFile
-   if there is not a file tiddlyDefaultFile then
-      breakpoint
-      put tiddly_DefaultFile() into tiddlyDefaultFile
-   end if
-   put project_ConstructReadMeFile (projectName) into readMeFile
-   --
-   revCopyFile tiddlyDefaultFile, readMeFile
-   if the result is empty then
-      return readMeFile
-   else
-      return "Error, failed to create file:" && readMeFile
-   end if
-end tiddly_CreateReadMe
-
 
 --> TiddlyWiki | ReadMe | Project
 -
@@ -415,7 +382,7 @@ end tiddly_EditReadme
 
 function tiddly_DefaultFile pShortFile
    -- put "projectify.html" into readmeDefault
-   if pShortFile is empty then put "empty.html" into pShortFile
+   if pShortFile is empty then put DefaultShortTemplate into pShortFile
    --
    put tiddly_DefaultFolder() & pShortFile into dFile
    return dFile
@@ -426,3 +393,51 @@ function tiddly_DefaultFolder
    folder_CreateNested dFolder
    return dFolder
 end tiddly_DefaultFolder
+
+
+--> Private
+-
+private function _ListReadmeArray
+   put env_GetRepoFolder() into repoFolder
+   put folders (repoFolder) into shortFolders
+   set the itemdelimiter to slash
+   repeat for each line projectName in shortFolders
+      if char 1 of projectName = "." then next repeat
+      --
+      set the cursor to busy
+      put repoFolder & projectName & "/README.html" into sFile
+      if there is a file sFile then
+         put sFile & CR after projectReadmeFiles
+         put projectName & CR after projectReadmeNames
+         put sFile into readmeData ["nameArray"][projectName]
+      end if
+      
+      put project_ListModuleFolders (projectName) into moduleFolders
+      repeat for each line moduleFolder in moduleFolders
+         set the cursor to busy
+         --
+         put moduleFolder & "README.html" into sFile
+         if there is a file sFile then
+            put sFile & CR after moduleReadmeFiles
+            --
+            put item -1 of moduleFolder into moduleName
+            replace "_" with "|" in moduleName
+            put moduleName & CR after moduleReadmeNames
+            --
+            put sFile into readmeData ["nameArray"][moduleName]
+         end if
+      end repeat
+   end repeat
+   --
+   delete char -1 of projectReadmeNames
+   delete char -1 of projectReadmeFiles
+   delete char -1 of moduleReadmeNames
+   delete char -1 of moduleReadmeFiles
+   --
+   put projectReadmeNames into readmeData ["projectReadmeNames"]
+   put projectReadmeFiles into readmeData ["projectReadmeFiles"]
+   put moduleReadmeNames into readmeData ["moduleReadmeNames"]
+   put moduleReadmeFiles into readmeData ["moduleReadmeFiles"]
+   --
+   return readmeData
+end _ListReadmeArray

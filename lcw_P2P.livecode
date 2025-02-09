@@ -28,6 +28,7 @@ end preOpenStack
 
 on project_PostInit
    display_ModuleTools "View|TiddlyWiki"
+   display_ModuleTools "View|Guide"
 end project_PostInit
 
 

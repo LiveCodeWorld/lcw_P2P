@@ -35,43 +35,60 @@ end menu_CheckTarget
 --> Global | TiddlyWiki | Plugins | Menu
 -
 on menu_TiddlyWeb tiddlyView
-   put "https://tiddlywiki.com/#GettingStarted" into sURL
-   if the shiftkey is not "Down" then
-      display_TiddlyWiki sURL
-   else
-      set the browser_URL of tiddlyView to sURL
-   end if
+   put the right_View of tiddlyView into rightView
+   display_TiddlyWiki "https://tiddlywiki.com/#GettingStarted", rightView, false
 end menu_TiddlyWeb
+
+on menu_TiddlyDev tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_TiddlyWiki "https://tiddlywiki.com/dev/", rightView, false
+end menu_TiddlyDev
 
 private on _
 end _
 
-on menu_Kara
-   display_TiddlyWiki "https://kookma.github.io/TW-Kara/#"
+on menu_Kara tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_TiddlyWiki "https://kookma.github.io/TW-Kara/#", rightView, false
 end menu_Kara
 
-on menu_TodoList
-   display_TiddlyWiki "https://kookma.github.io/TW-Todolist/#Install"
+on menu_TodoList tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_TiddlyWiki "https://kookma.github.io/TW-Todolist/#Install", rightView, false
 end menu_TodoList
 
-on menu_Projectify
-   display_TiddlyWiki "https://thaddeusjiang.github.io/Projectify/demo.html"
+on menu_Projectify tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_TiddlyWiki "https://thaddeusjiang.github.io/Projectify/demo.html", rightView, false
 end menu_Projectify
 
-on menu_TwScripts
+on menu_RevealJs tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_TiddlyWiki "https://sukima.github.io/tiddlywiki-reveal-js/", rightView, false
+end menu_RevealJs
+
+on menu_TwScripts tiddlyView
+   put the right_View of tiddlyView into rightView
    display_TiddlyWiki "https://kookma.github.io/TW-Scripts/"
 end menu_TwScripts
 
-on menu_Mermaid
-   display_TiddlyWiki "https://efurlanm.github.io/mermaid-tw5/"
+on menu_Mermaid tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_TiddlyWiki "https://efurlanm.github.io/mermaid-tw5/", rightView, false
 end menu_Mermaid
 
-on menu_Reveal
-   display_TiddlyWiki "https://sukima.github.io/tiddlywiki-reveal-js/"
+on menu_Reveal tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_TiddlyWiki "https://sukima.github.io/tiddlywiki-reveal-js/", rightView, false
 end menu_Reveal
 
 private on __
 end __
+
+on menu_ChatGpt tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_Browser "https://chatgpt.com/c/679dc0a9-d4d8-8004-b7f1-e48fa9bb6fa3", rightView
+end menu_ChatGpt
 
 on menu_IcoMoon
    put "https://icomoon.io/app/#/select" into someURL

@@ -15,7 +15,167 @@ constant NotificationTemplate = "$:/temp/NotificationTemplate"
 
 --> Working on
 -
+getprop readme_Folder
+   put the browser_File of me into readmeFolder
+   set the itemdelimiter to slash
+   put empty into item -1 of readmeFolder
+   return readmeFolder
+end readme_Folder
+
+on tiddlyButton_Call sMessage
+   local sResult
+   
+   # Strip enclosing quotes (should fix javascript)
+   delete char 1 of sMessage
+   delete char -1 of sMessage
+   
+   put the readme_Folder of me into gitFolder
+   switch sMessage
+      case "git push"
+         _GitPush gitFolder
+         break
+      case "git commit and add"
+         _GitCommitAnd gitFolder
+         break
+      case "git discard untracked"
+         _GitDiscardUntracked gitFolder
+         break
+      case "git add untracked"
+         _GitAddUntracked gitFolder
+         break
+      case "git status"
+         _CreateGitStatus gitFolder
+         break
+      default
+         put "Unknown message: " & sMessage into sResult
+         _UpdateAndPrepend sResult
+   end switch
+end tiddlyButton_Call
+
+function tiddly_AddPushButton
+   put tiddly_ConstructButton ("Push", "git push") into btnText
+   return btnText
+end tiddly_AddPushButton
+
+function tiddly_DiscardUntrackedButton
+   put tiddly_ConstructButton ("Discard Untracked", "git discard untracked") into btnText
+   return btnText
+end tiddly_DiscardUntrackedButton
+
+function tiddly_AddUntrackedButton
+   put tiddly_ConstructButton ("Add Untracked", "git add untracked") into btnText
+   return btnText
+end tiddly_AddUntrackedButton
+
+function tiddly_CommitChangesButton pAlsoAdd
+   if pAlsoAdd is true then
+      --  (use "git add" and/or "git commit -a")
+      put tiddly_ConstructButton ("Commit and Add", "git commit and add") into btnText
+   else
+      put tiddly_ConstructButton ("Commit changes", "git commit") into btnText
+   end if
+   return btnText
+end tiddly_CommitChangesButton
+
+function tiddly_ConstructButton btnName, cMessage
+   get "<$button>[[btnName]]<$callLivecode message='[[cMessage]]'/></$button>"
+   replace "'" with quote in it
+   put merge (it) into btnText
+   return btnText
+end tiddly_ConstructButton
+
+private command _GitPush gitFolder
+   git_PushBranch gitFolder
+   --
+   _CreateGitStatus gitFolder
+end _GitPush
+
+private command _GitCommitAnd gitFolder, pComment
+   if pComment is empty then
+      put "New commit" && the internet date into dComment
+      ask "Commit comment..." with dComment as sheet
+      if it is empty then exit to top
+      put it into pComment
+   end if
+   git_CommitAndAdd gitFolder, pComment, true
+   --
+   _CreateGitStatus gitFolder
+end _GitCommitAnd
+
+private command _GitDiscardUntracked gitFolder
+   git_DiscardFolder gitFolder
+   --
+   _CreateGitStatus gitFolder
+end _GitDiscardUntracked
+
+private command _GitAddUntracked gitFolder
+   git_AddFolder gitFolder
+   --
+   _CreateGitStatus gitFolder
+end _GitAddUntracked
+
+private command _CreateGitStatus pGitFolder
+   # Get git status
+   put git_FetchStatusTable (pGitFolder) into gitTable
+   
+   # Set "Git Status Buttons" tiddler
+   switch
+      case gitTable contains "no changes added to commit"
+         --  (use "git add" and/or "git commit -a")
+         put tiddly_CommitChangesButton(true) into btnText
+         break
+      case gitTable contains "Changes to be committed:"
+         put tiddly_CommitChangesButton() into btnText
+         break
+      case gitTable contains "Changes not staged for commit:"
+         put "There are changes not staged for commit. What would you like to do?" into sQuestion
+         answer sQuestion with "Cancel" or "Discard" or "Add" as sheet
+         if it is "Add" then
+            -- (use "git add <file>..." to update what will be committed)
+            put tiddly_AddUntrackedButton() into btnText
+         else if it is "Discard" then
+            -- (use "git restore <file>..." to discard changes in working directory)
+            put tiddly_DiscardUntrackedButton() into btnText
+         end if
+         break
+      case gitTable contains "Untracked files:"
+         put tiddly_AddUntrackedButton() into btnText
+         break
+      case gitTable contains _ReKwote ("(use 'git push' to publish your local commits)")
+         put tiddly_AddPushButton() into btnText
+         break
+         break
+      default
+         put empty into btnText
+   end switch
+   set the tiddler_Text ["Git Status Buttons"] of me to btnText
+   
+   # Set Tiddler
+   put "git status" into cArray ["title"]
+   put "text" into cArray ["type"]
+   put gitTable into cArray ["text"]
+   --
+   set the tiddler_ContentArray of me to cArray
+end _CreateGitStatus
+
+private function _ReKwote sText
+   replace "'" with quote in sText
+   return sText
+end _ReKwote
+
+private command _UpdateAndPrepend sResult
+   # Update the "test" tiddler with the result
+   put "var tiddler = new $tw.Tiddler({title: 'test', text: '" & sResult & "', type: 'text/plain'});" & \
+         "$tw.wiki.addTiddler(tiddler);" into sJavascript
+   do sJavascript in me
+   
+   # Show test tiddler
+   -- set the show_Tiddler of me to "test"
+   set the prepend_Tiddler of me to "test"
+end _UpdateAndPrepend
+
 setprop tiddler_Plugin [pluginTitle] scaffoldName
+   -- experimental use by menu_LiveCodePlugin
    if pluginTitle is empty then put the ticks into pluginTitle
    
    put scaffold_Get (scaffoldName) into tiddlerJavascript
@@ -56,27 +216,96 @@ function tiddler_GetPluginJavascript scaffoldName, pluginTitle
    */
 end tiddler_GetPluginJavascript
 
-on tiddlyButton_Call sMessage
-   local sResult
-   switch sMessage
-      case "Destroy"
-         put "Careful, this is dangerous" into sResult
+
+--> Init
+-
+getprop test_Behavior
+   -- let's check this behavior is attached (checked on openStack)
+   return true
+end test_Behavior
+
+on tiddly_Init
+   _SetJavascriptHandlers
+   --
+   put the browser_File of me into tiddlyFile
+   set the itemdelimiter to slash
+   put item -1 of tiddlyFile into shortFile
+   switch
+      case tiddlyFile is empty
+         set the stack_Label of me to empty
          break
-      case "Hello, Livecode!"
-         put "Hello from Livecode!" into sResult
+      case there is a file tiddlyFile
+      case shortFile = "README.html"
+         put item -5 to -1 of tiddlyFile into relPath
+         set the stack_Label of me to relPath
+         --
+         put the tiddly_Label of me into tiddlyLabel
+         set the tiddly_SubTitle of me to tiddlyLabel
          break
       default
-         put "Unknown message: " & sMessage into sResult
+         put the browser_URL of me into tiddlyURL
+         set the tiddly_Notification of me to "No browser_File:" && tiddlyFile
    end switch
+   --
+   set the card_Colour of me to "random" -- so we know behavior is active
+end tiddly_Init
+
+private command _ExportTiddlyJson tiddlyJSON
+   if char 1 to 2 of tiddlyJSON is not "[{" then
+      return "Error, not a json file"
+   end if
+   put json_ToArray (tiddlyJSON) into tiddlyArray
+   if tiddlyArray is not an array then
+      -- breakpoint -- often an issue with complex json
+      set the tiddly_Notification of me to "Cannot encode JSON for export! Hopefully html export is good."
+      return "Error, could not parse a json file"
+   end if
    
-   # Update the "test" tiddler with the result
-   put "var tiddler = new $tw.Tiddler({title: 'test', text: '" & sResult & "', type: 'text/plain'});" & \
-         "$tw.wiki.addTiddler(tiddler);" into sJavascript
-   do sJavascript in me
+   put the browser_File of me into sFile
+   set the itemdelimiter to slash
+   put item -1 of sFile into shortFile
+   set the itemdelimiter to "."
+   put item 1 of shortFile & ".json" into jsonShortFile
    
-   # Show test tiddler
-   set the show_Tiddler of me to "test"
-end tiddlyButton_Call
+   _SaveText tiddlyJSON, jsonShortFile
+   return the result
+end _ExportTiddlyJson
+
+
+--> Tiddly | Title
+-
+getprop tiddler_Text [pTiddlerTitle]
+   # JavaScript to safely retrieve the tiddler text or return an empty string if it doesn't exist
+   put merge("var tiddlerText = $tw.wiki.getTiddlerText('[[pTiddlerTitle]]') || ''; liveCode.javascript_Result(tiddlerText);") into sJavascript
+   
+   # Execute the JavaScript and get the result
+   put _GetJavascriptResult(sJavascript) into tiddlerText
+   return tiddlerText
+end tiddler_Text
+
+getprop tiddly_SubTitle
+   return the tiddler_Text ["$:/SiteSubtitle"] of me
+end tiddly_SubTitle
+
+setprop tiddly_SubTitle subTitle
+   set the tiddler_Text ["$:/SiteSubtitle"] of me to subTitle
+   return empty
+end tiddly_SubTitle
+
+getprop tiddly_Title
+   return the tiddler_Text ["$:/SiteTitle"] of me
+end tiddly_Title
+
+setprop tiddly_Title [pStrapline] pTitle
+   if pTitle is empty then  return "Error: The title cannot be empty."
+   
+   set the tiddler_Text ["$:/SiteTitle"] of me to pTitle
+   --
+   if pStrapline is not empty then
+      set the tiddler_Text ["$:/SiteSubtitle"] of me to pStrapline
+   end if
+   return empty
+end tiddly_Title
 
 
 --> JS
@@ -90,7 +319,7 @@ setprop js_Result sResult
 end js_Result
 
 getprop card_Colour
-   put the card_Object of me to cObject
+   put the card_Object of me into cObject
    put the backgroundColor of cObject into sColour
    return sColour
 end card_Colour
@@ -188,23 +417,6 @@ on preOpenControl
    pass preOpenControl
 end preOpenControl
 
-on tiddly_Init
-   _SetJavascriptHandlers
-   --
-   put the browser_File of me into tiddlyFile
-   if there is a file tiddlyFile then
-      set the itemdelimiter to slash
-      put item -1 of tiddlyFile into shortFile
-      if shortFile = "readme.html" then
-         put item -2 to -1 of tiddlyFile into shortFile
-      end if
-      set the stack_Label of me to shortFile
-   else
-      put the browser_URL of me into tiddlyURL
-      set the stack_Label of me to tiddlyURL
-   end if
-end tiddly_Init
-
 on browserUnhandledLoadRequest blobUrl
    -- Check if the URL is a Blob URL
    if blobUrl begins with "blob:" then
@@ -243,9 +455,9 @@ on browserUnhandledLoadRequest blobUrl
             breakpoint
       end switch
    else
-      -- Handle normal URLs
-      put "URL not recognized as a Blob URL"
-      breakpoint
+      -- tiddler:%20%3CtiddlerTitle%3E
+      put "URL not recognized as a Blob URL:" && urldecode (blobUrl)
+      -- breakpoint
    end if
 end browserUnhandledLoadRequest
 
@@ -301,39 +513,9 @@ private command _ExportFullTiddlyHtml sContent
    _SaveText sContent
 end _ExportFullTiddlyHtml
 
-private command _ExportTiddlyJson tiddlyJSON
-   if char 1 to 2 of tiddlyJSON is not "[{" then
-      return "Error, not a json file"
-   end if
-   put json_ToArray (tiddlyJSON) into tiddlyArray
-   if tiddlyArray is not an array then
-      breakpoint
-      return "Error, could not parse a json file"
-   end if
-   
-   put the browser_File of me into sFile
-   set the itemdelimiter to slash
-   put item -1 of sFile into shortFile
-   set the itemdelimiter to "."
-   put item 1 of shortFile & ".json" into jsonShortFile
-   
-   _SaveText tiddlyJSON, jsonShortFile
-   return the result
-end _ExportTiddlyJson
-
 
 --> Tiddler
 -
-getprop tiddler_Text [pTiddlerTitle]
-   get the tiddler_Exists [tTitle] of me -- otherwise crashes
-   if it is false then return empty -- fix
-   
-   put merge("$tw.wiki.getTiddlerText('[[pTiddlerTitle]]')") into sJavascript
-   put merge("liveCode.javascript_Result([[sJavascript]]);") into livecodeJavascript
-   put _GetJavascriptResult(livecodeJavascript) into jsResult
-   return jsResult
-end tiddler_Text
-
 getprop tiddly_Saved
    # JavaScript to check if the wiki has unsaved changes and return the exact message
    put "var isDirty = $tw.saverHandler.isDirty();" & \
@@ -357,16 +539,16 @@ getprop blob_Html
 end blob_Html
 
 getprop blob_URl
-   put the 'uOPN["blobUrl"] of me into blobUrl
+   put the uOPN["blobUrl"] of me into blobUrl
    return blobUrl
 end blob_URl
 
 setprop blob_URl blobUrl
-   set the 'uOPN["blobUrl"] of me to blobUrl
+   set the uOPN["blobUrl"] of me to blobUrl
 end blob_URl
 
 
---> Events | Unhandled
+--> Tiddler | Array
 -
 getprop tiddler_Html [pTiddlerName]
    # JavaScript to render the tiddler
@@ -378,6 +560,123 @@ getprop tiddler_Html [pTiddlerName]
    return jsResult
 end tiddler_Html
 
+
+--> Tiddler | Array
+-
+setprop tiddler_ContentArray cArray
+   put tiddler_JavascriptFromArray(cArray) into sJavascript
+   do sJavascript in me
+   -- put the result into sResult -- does nothing
+   return sJavascript
+end tiddler_ContentArray
+
+function tiddler_JavascriptFromArray cArray
+   put cArray ["title"] into sTitle
+   if sTitle is empty then put the ticks into sTitle
+   put cArray ["text"] into sContent
+   
+   switch cArray ["type"]
+      case "meramid"
+         put "text/vnd.tiddlywiki.mermaid" into cType
+         break
+      case "markdown"
+         put "text/markdown" into cType
+         break
+      case "html"
+         put "text/html" into cType
+         break
+      case "text"
+         put "text/plain" into cType
+         break
+      case "svg"
+         put "image/svg+xml" into cType
+         break
+      case "png"
+         put "image/png" into cType
+         break
+      case "jpeg"
+         put "image/jpeg" into cType
+         break
+      case "ICO"
+      case "icon"
+         put "image/image/x-icon" into cType
+         break
+      case "gif"
+         put "image/gif" into cType
+         break
+      case "json"
+         put "application/json" into cType
+         break
+      case "dictionary"
+         put "application/x-tiddler-dictionary" into cType
+         break
+      case "javascript"
+         put "application/javascript" into cType
+         break
+      case "stylesheet"
+      case "css"
+         put "text/css" into cType
+         break
+      case "TiddlyWiki"
+      default
+         put "text/vnd.tiddlywiki" into cType
+   end switch
+   
+   # Construct javascript
+   get merge ("$tw.wiki.addTiddler(new $tw.Tiddler({title: '[[sTitle]]', text: `" & sContent & "`, type: '[[cType]]'}));")
+   return it
+end tiddler_JavascriptFromArray
+
+getprop tiddler_Array [pTiddlerTitle]
+   -- JavaScript to get all fields from a tiddler as a JSON object
+   put merge ("liveCode.javascript_Result(" & \
+         "JSON.stringify($tw.wiki.getTiddler('[[pTiddlerTitle]]')?.fields || {}));") into sJavascript
+   
+   -- Execute JavaScript and get the result (JSON)
+   put _GetJavascriptResult (sJavascript) into jsResult
+   
+   -- Convert JSON result into a LiveCode associative array
+   local tTiddlerArray
+   if jsResult is not empty then
+      put JSONToArray (jsResult) into tTiddlerArray
+   end if
+   
+   -- Return the associative array
+   return tTiddlerArray
+end tiddler_Array
+
+setprop tiddler_Array tArray
+   put ArrayToJSON (tArray) into tJSON
+   set the tiddler_JSON of me to tJSON
+   return tJSON
+end tiddler_Array
+
+setprop tiddler_JSON tJSON
+   -- Escape the JSON string safely
+   _Normalize tJSON
+   
+   -- Ensure JSON is safely escaped for JavaScript compatibility
+   replace quote with "\u0022" in tJSON
+   replace CR with "\n" in tJSON
+   replace linefeed with "\n" in tJSON
+   
+   -- Send the full tiddler object to TiddlyWiki via JavaScript
+   put "try {" & \
+         "var tiddlerData = JSON.parse(`" & tJSON & "`);" & \
+         "$tw.wiki.addTiddler(new $tw.Tiddler(tiddlerData));" & \
+         "$tw.rootWidget.refresh();" & \
+         "liveCode.javascript_Result('Success');" & \
+         "} catch(e) { liveCode.javascript_Result('Error: ' + e.message); }" into sJavascript
+   
+   -- Execute JavaScript in the browser widget
+   do sJavascript in me
+   put the result into sResult
+   return sResult
+end tiddler_JSON
+
+
+--> Events | Unhandled
+-
 setprop tiddly_ImportJSON exportedTiddlyJSON
    -- Ensure the input JSON is valid and not empty
    if exportedTiddlyJSON is empty then
@@ -470,20 +769,77 @@ private command _SaveText sText, pShortFile
       return "Error, not saving empty text."
    end if
    
+   # File to save to?
+   put the url of me into sURL
+   put file_FromUrl (sURL) into tiddlyFile
+   
+   # Check
+   switch
+      case tiddlyFile is empty
+         breakpoint
+         break
+      case there is not a file tiddlyFile
+         -- we will create one
+         break
+      default
+         -- we will overwrite
+   end switch
+   
+   # Customise path with pShortFile
    set the itemdelimiter to slash
-   put the browser_File of me into tiddlyFile
    if pShortFile is not empty then
       put pShortFile into item -1 of tiddlyFile
    end if
    put item -1 of tiddlyFile into shortFile
-   --
+   
+   # Save
    text_Set tiddlyFile, sText
-   --
+   
+   # Notify
    put "Saved Tiddler" && shortFile into sNotification
    set the tiddly_Notification of me to sNotification
-   --
-   return sFile
+   return tiddlyFile
 end _SaveText
+
+private function file_FromUrl sURL, pUseShort
+   -- file:///Users/david/Documents/git-repos/LiveCodeWorld/lcw_Wiki/modules/View_Guide/README.html#User%20&%20Identity%20Management
+   if sURL begins with "file:///" then
+      put char 8 to -1 of sURL into sFile
+      
+      set the itemdelimiter to slash
+      --
+      get item -1 of sFile
+      set the itemdelimiter to "#"
+      put item 1 of it into shortFile
+      
+      if pUseShort is true then
+         return shortFile
+      else
+         set the itemdelimiter to slash
+         put shortFile into item -1 of sFile
+         return sFile
+      end if
+   else
+      return empty
+   end if
+end file_FromUrl
+
+getprop browser_File [pUseShort]
+   put the url of me into sURL
+   put file_FromUrl (sURL, pUseShort) into sFile
+   if there is a file sFile then
+      return sFile
+   else
+      put the url of me into sURL -- this is a bug.
+      return empty
+   end if
+end browser_File
+
+setprop browser_File sFile
+   put "file:///" & sFile into sURL
+   set the url of me to sURL
+   return sURL
+end browser_File
 
 private command _DisplayNotificationTiddler
    put merge ("$tw.notifier.display('[[NotificationTemplate]]');") into sJavascript
@@ -677,56 +1033,6 @@ setprop delete_Tiddler tiddlerTitle
 end delete_Tiddler
 
 
---> Working on
--
-getprop tiddler_Array [pTiddlerTitle]
-   -- JavaScript to get all fields from a tiddler as a JSON object
-   put merge ("liveCode.javascript_Result(" & \
-         "JSON.stringify($tw.wiki.getTiddler('[[pTiddlerTitle]]')?.fields || {}));") into sJavascript
-   
-   -- Execute JavaScript and get the result (JSON)
-   put _GetJavascriptResult(sJavascript) into jsResult
-   
-   -- Convert JSON result into a LiveCode associative array
-   local tTiddlerArray
-   if jsResult is not empty then
-      put JSONToArray (jsResult) into tTiddlerArray
-   end if
-   
-   -- Return the associative array
-   return tTiddlerArray
-end tiddler_Array
-
-setprop tiddler_Array tArray
-   put ArrayToJSON (tArray) into tJSON
-   set the tiddler_JSON of me to tJSON
-   return tJSON
-end tiddler_Array
-
-setprop tiddler_JSON tJSON
-   -- Escape the JSON string safely
-   _Normalize tJSON
-   
-   -- Ensure JSON is safely escaped for JavaScript compatibility
-   replace quote with "\u0022" in tJSON
-   replace CR with "\n" in tJSON
-   replace linefeed with "\n" in tJSON
-   
-   -- Send the full tiddler object to TiddlyWiki via JavaScript
-   put "try {" & \
-         "var tiddlerData = JSON.parse(`" & tJSON & "`);" & \
-         "$tw.wiki.addTiddler(new $tw.Tiddler(tiddlerData));" & \
-         "$tw.rootWidget.refresh();" & \
-         "liveCode.javascript_Result('Success');" & \
-         "} catch(e) { liveCode.javascript_Result('Error: ' + e.message); }" into sJavascript
-   
-   -- Execute JavaScript in the browser widget
-   do sJavascript in me
-   put the result into sResult
-   return sResult
-end tiddler_JSON
-
-
 --> Tiddler
 -
 getprop tiddler_Visible [pTitle]
@@ -829,41 +1135,6 @@ setprop tiddly_Layout pLayout
    return the result
 end tiddly_Layout
 
-getprop tiddly_Title
-   -- JavaScript to get the TiddlyWiki title from $:/SiteTitle
-   put "liveCode.javascript_Result($tw.wiki.getTiddlerText('$:/SiteTitle'));" into sJavascript
-   
-   -- Execute JavaScript and retrieve the result
-   put _GetJavascriptResult(sJavascript) into jsResult
-   
-   -- Return the title of the TiddlyWiki
-   return jsResult
-end tiddly_Title
-
-setprop tiddly_Title [pStrapline] pTitle
-   # Ensure title is provided
-   if pTitle is empty then 
-      return "Error: The title cannot be empty."
-   end if
-   
-   -- Normalize inputs for safe JavaScript usage
-   _Normalize pTitle
-   _Normalize pStrapline
-   
-   # Prepare the JavaScript for setting title and strapline using $tw.wiki.setText()
-   if pStrapline is empty then
-      put "liveCode.javascript_Result($tw.wiki.setText('$:/SiteTitle', 'text', null, `" & pTitle & "`));" into sJavascript
-   else
-      put "liveCode.javascript_Result($tw.wiki.setText('$:/SiteTitle', 'text', null, `" & pTitle & "`));" & \
-            "liveCode.javascript_Result($tw.wiki.setText('$:/SiteSubtitle', 'text', null, `" & pStrapline & "`));" into sJavascript
-   end if
-   
-   # Execute JavaScript in the browser widget
-   do sJavascript in me
-   put the result into sResult
-   return sResult
-end tiddly_Title
-
 getprop tiddly_Tags
    -- JavaScript to filter and list all unique user-defined tags
    put "$tw.wiki.filterTiddlers('[all[tiddlers]!is[system]tags[]!duplicates[]sort[]]').join(';')" into sJavascript  
@@ -932,23 +1203,6 @@ setprop browser_URL sURL
    set the url of me to sURL
    return sURL
 end browser_URL
-
-getprop browser_File [pUseShort]
-   put the url of me into sURL
-   put char 9 to -1 of sURL into sFile
-   if pUseShort is true then
-      set the itemdelimiter to slash
-      return item -1 of sFile
-   else
-      return sFile
-   end if
-end browser_File
-
-setprop browser_File sFile
-   put "file:///" & sFile into sURL
-   set the url of me to sURL
-   return sURL
-end browser_File
 
 setprop browser_Navigate whichDirection
    switch whichDirection
