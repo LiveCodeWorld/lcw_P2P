@@ -97,7 +97,7 @@ private command _GitCommitAnd gitFolder, pComment
       if it is empty then exit to top
       put it into pComment
    end if
-   git_CommitAndAdd gitFolder, pComment, true
+   git_CommitAll gitFolder, pComment, true
    --
    _CreateGitStatus gitFolder
 end _GitCommitAnd
