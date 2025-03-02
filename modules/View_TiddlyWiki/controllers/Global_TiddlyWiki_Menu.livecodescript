@@ -79,22 +79,9 @@ end guide_Array
 
 --> Global | TiddlyWiki | Menu
 -
-on menu_DraftAbout tiddlyView
-   put _GuideName (tiddlyView) into moduleName
-   if exists (stack moduleName) is false then
-      breakpoint
-      exit to top
-   end if
-   
-   put the project_Name of stack moduleName into projectName
-   put the project_Folder of stack moduleName into projectFolder
-   
-   put scaffold_Get ("Guide: About") into mTemplate
-   put merge (mTemplate) into aboutText
-   --
-   set the tiddler_Text ["ProjectName"] of tiddlyView to projectName
-   set the tiddler_Text ["About"] of tiddlyView to aboutText
-end menu_DraftAbout
+on menu_OpenGuide
+   go to stack "View|Guide"
+end menu_OpenGuide
 
 on menu_GoToWiki tiddlyView, stackName
    go to stack stackName
@@ -102,17 +89,15 @@ end menu_GoToWiki
 
 getprop goToWiki_Params
    put stack_ListNames("Project *") into myMenu
-   if myMenu is not empty then
-      put CR & "-" after myMenu
-   end if
    get stack_ListNames("Module *")
-   if it is not empty then
-      if myMenu is empty then
-         return it
-      else
-         put CR & it after myMenu
-         return myMenu
-      end if
+   if it is empty then
+      return myMenu
+   else if myMenu is empty then
+      return it
+   else
+      put CR & "-" after myMenu
+      put CR & it after myMenu
+      return myMenu
    end if
 end goToWiki_Params
 
@@ -315,6 +300,23 @@ on menu_RevealReadme tiddlyView
    put the browser_File of tiddlyView into tiddlyFile
    finder_Reveal tiddlyFile
 end menu_RevealReadme
+
+on menu_DraftAbout tiddlyView
+   put _GuideName (tiddlyView) into moduleName
+   if exists (stack moduleName) is false then
+      breakpoint
+      exit to top
+   end if
+   
+   put the project_Name of stack moduleName into projectName
+   put the project_Folder of stack moduleName into projectFolder
+   
+   put scaffold_Get ("Guide: About") into mTemplate
+   put merge (mTemplate) into aboutText
+   --
+   set the tiddler_Text ["ProjectName"] of tiddlyView to projectName
+   set the tiddler_Text ["About"] of tiddlyView to aboutText
+end menu_DraftAbout
 
 on submenu_Dev
    return menu_DevTitle ("Global | TiddlyWiki | Menu")

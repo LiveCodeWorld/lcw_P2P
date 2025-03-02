@@ -98,8 +98,13 @@ end tiddly_CreateProjectReadMe
 
 --> Props
 -
+getprop readMe_Html
+   put the readMe_File of the target into readMeFile
+   return url ("file:" & readMeFile)
+end readMe_Html
+
 getprop readMe_File
-   put the module_Folder of the target into moduleFolder
+   put the readme_Folder of the target into moduleFolder
    --
    if there is a folder moduleFolder then
       put moduleFolder & "README.html" into readMeFile
@@ -110,11 +115,19 @@ getprop readMe_File
 end readMe_File
 
 getprop module_ReadMeFile
-   put the module_Folder of the target into moduleFolder
+   put the readme_Folder of the target into moduleFolder
    --
    put moduleFolder & "README.html" into readMeFile
    return readMeFile
 end module_ReadMeFile
+
+getprop readme_Folder
+   -- put the module_Folder of the target into moduleFolder
+   put the browser_File of the target into readmeFolder
+   set the itemdelimiter to slash
+   put empty into item -1 of readmeFolder
+   return readmeFolder
+end readme_Folder
 
 getprop project_ReadmeFile
    put the project_Name of the target into projectName

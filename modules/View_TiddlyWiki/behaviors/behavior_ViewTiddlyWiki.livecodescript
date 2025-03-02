@@ -16,163 +16,11 @@ constant NotificationTemplate = "$:/temp/NotificationTemplate"
 --> Working on
 -
 getprop readme_Folder
-   put the browser_File of me into readmeFolder
+   put the browser_File of the target into readmeFolder
    set the itemdelimiter to slash
    put empty into item -1 of readmeFolder
    return readmeFolder
 end readme_Folder
-
-on tiddlyButton_Call sMessage
-   local sResult
-   
-   # Strip enclosing quotes (should fix javascript)
-   delete char 1 of sMessage
-   delete char -1 of sMessage
-   
-   put the readme_Folder of me into gitFolder
-   switch sMessage
-      case "git push"
-         _GitPush gitFolder
-         break
-      case "git commit and add"
-         _GitCommitAnd gitFolder
-         break
-      case "git discard untracked"
-         _GitDiscardUntracked gitFolder
-         break
-      case "git add untracked"
-         _GitAddUntracked gitFolder
-         break
-      case "git status"
-         _CreateGitStatus gitFolder
-         break
-      default
-         put "Unknown message: " & sMessage into sResult
-         _UpdateAndPrepend sResult
-   end switch
-end tiddlyButton_Call
-
-function tiddly_AddPushButton
-   put tiddly_ConstructButton ("Push", "git push") into btnText
-   return btnText
-end tiddly_AddPushButton
-
-function tiddly_DiscardUntrackedButton
-   put tiddly_ConstructButton ("Discard Untracked", "git discard untracked") into btnText
-   return btnText
-end tiddly_DiscardUntrackedButton
-
-function tiddly_AddUntrackedButton
-   put tiddly_ConstructButton ("Add Untracked", "git add untracked") into btnText
-   return btnText
-end tiddly_AddUntrackedButton
-
-function tiddly_CommitChangesButton pAlsoAdd
-   if pAlsoAdd is true then
-      --  (use "git add" and/or "git commit -a")
-      put tiddly_ConstructButton ("Commit and Add", "git commit and add") into btnText
-   else
-      put tiddly_ConstructButton ("Commit changes", "git commit") into btnText
-   end if
-   return btnText
-end tiddly_CommitChangesButton
-
-function tiddly_ConstructButton btnName, cMessage
-   get "<$button>[[btnName]]<$callLivecode message='[[cMessage]]'/></$button>"
-   replace "'" with quote in it
-   put merge (it) into btnText
-   return btnText
-end tiddly_ConstructButton
-
-private command _GitPush gitFolder
-   git_PushBranch gitFolder
-   --
-   _CreateGitStatus gitFolder
-end _GitPush
-
-private command _GitCommitAnd gitFolder, pComment
-   if pComment is empty then
-      put "New commit" && the internet date into dComment
-      ask "Commit comment..." with dComment as sheet
-      if it is empty then exit to top
-      put it into pComment
-   end if
-   git_CommitAll gitFolder, pComment, true
-   --
-   _CreateGitStatus gitFolder
-end _GitCommitAnd
-
-private command _GitDiscardUntracked gitFolder
-   git_DiscardFolder gitFolder
-   --
-   _CreateGitStatus gitFolder
-end _GitDiscardUntracked
-
-private command _GitAddUntracked gitFolder
-   git_AddFolder gitFolder
-   --
-   _CreateGitStatus gitFolder
-end _GitAddUntracked
-
-private command _CreateGitStatus pGitFolder
-   # Get git status
-   put git_FetchStatusTable (pGitFolder) into gitTable
-   
-   # Set "Git Status Buttons" tiddler
-   switch
-      case gitTable contains "no changes added to commit"
-         --  (use "git add" and/or "git commit -a")
-         put tiddly_CommitChangesButton(true) into btnText
-         break
-      case gitTable contains "Changes to be committed:"
-         put tiddly_CommitChangesButton() into btnText
-         break
-      case gitTable contains "Changes not staged for commit:"
-         put "There are changes not staged for commit. What would you like to do?" into sQuestion
-         answer sQuestion with "Cancel" or "Discard" or "Add" as sheet
-         if it is "Add" then
-            -- (use "git add <file>..." to update what will be committed)
-            put tiddly_AddUntrackedButton() into btnText
-         else if it is "Discard" then
-            -- (use "git restore <file>..." to discard changes in working directory)
-            put tiddly_DiscardUntrackedButton() into btnText
-         end if
-         break
-      case gitTable contains "Untracked files:"
-         put tiddly_AddUntrackedButton() into btnText
-         break
-      case gitTable contains _ReKwote ("(use 'git push' to publish your local commits)")
-         put tiddly_AddPushButton() into btnText
-         break
-         break
-      default
-         put empty into btnText
-   end switch
-   set the tiddler_Text ["Git Status Buttons"] of me to btnText
-   
-   # Set Tiddler
-   put "git status" into cArray ["title"]
-   put "text" into cArray ["type"]
-   put gitTable into cArray ["text"]
-   --
-   set the tiddler_ContentArray of me to cArray
-end _CreateGitStatus
-
-private function _ReKwote sText
-   replace "'" with quote in sText
-   return sText
-end _ReKwote
-
-private command _UpdateAndPrepend sResult
-   # Update the "test" tiddler with the result
-   put "var tiddler = new $tw.Tiddler({title: 'test', text: '" & sResult & "', type: 'text/plain'});" & \
-         "$tw.wiki.addTiddler(tiddler);" into sJavascript
-   do sJavascript in me
-   
-   # Show test tiddler
-   -- set the show_Tiddler of me to "test"
-   set the prepend_Tiddler of me to "test"
-end _UpdateAndPrepend
 
 setprop tiddler_Plugin [pluginTitle] scaffoldName
    -- experimental use by menu_LiveCodePlugin
@@ -419,47 +267,57 @@ end preOpenControl
 
 on browserUnhandledLoadRequest blobUrl
    -- Check if the URL is a Blob URL
-   if blobUrl begins with "blob:" then
-      set the blob_URl of me to blobUrl
-      
-      # Export HTML
-      put _GetBlobData (blobUrl) into sContent
-      --
-      get line 1 to 10 of sContent
-      switch
-         -- case the number of chars of tHtmlContent <200
-         case sContent is "[]"
-         case sContent is empty
-            breakpoint
-            tiddly_Init
-            
-            # Export JSON
-            put the tiddly_JSON of me into tiddlyJSON
-            -- _ExportTiddlyJson tiddlyJSON -- when it is robust
-            --
-            put the browser_File of me into sFile
-            return "Error, saving html file:" && sFile
-         case char 1 of sContent = "["
-            _ExportTiddlerJson sContent
-            break
-         case item 1 of it = kwote ("title")
-            _ExportCsvTiddler sContent
-            break
-         case it contains "<!-- The following comment is called a MOTW comment and is necessary for the TiddlyIE Internet Explorer extension -->"
-            _ExportFullTiddlyHtml sContent
-            break
-         case it contains "<!doctype html>"
-            _ExportHtmlTiddler sContent
-            break
-         default
-            breakpoint
-      end switch
-   else
-      -- tiddler:%20%3CtiddlerTitle%3E
-      put "URL not recognized as a Blob URL:" && urldecode (blobUrl)
-      -- breakpoint
-   end if
+   switch
+      case blobUrl begins with "blob:null/"
+      case blobUrl begins with "blob:"
+         _HandleTiddlyWikiSave blobUrl
+         break
+      default
+         -- tiddler:%20%3CtiddlerTitle%3E
+         put "URL not recognized as a Blob URL:" && urldecode (blobUrl)
+         -- breakpoint
+   end switch
 end browserUnhandledLoadRequest
+
+private command _HandleTiddlyWikiSave blobUrl
+   set the blob_URl of me to blobUrl
+   
+   # Export HTML
+   put _GetBlobData (blobUrl) into sContent
+   --
+   get line 1 to 10 of sContent
+   switch
+      -- case the number of chars of tHtmlContent <200
+      case sContent is "[]"
+      case sContent is empty
+         breakpoint
+         tiddly_Init
+         
+         # Export JSON
+         put the tiddly_JSON of me into tiddlyJSON
+         -- _ExportTiddlyJson tiddlyJSON -- when it is robust
+         --
+         put the browser_File of me into sFile
+         return "Error, saving html file:" && sFile
+      case char 1 of sContent = "["
+         _ExportTiddlerJson sContent
+         break
+      case item 1 of it = kwote ("title")
+         _ExportCsvTiddler sContent
+         break
+      case it contains "<!-- The following comment is called a MOTW comment and is necessary for the TiddlyIE Internet Explorer extension -->"
+         _ExportFullTiddlyHtml sContent
+         break
+      case it contains "<!doctype html>"
+         _ExportHtmlTiddler sContent
+         break
+      case it contains "Error: TypeError: Load failed"
+         -- eg tldraw export (look at tldraw api?)
+         break
+      default
+         breakpoint
+   end switch
+end _HandleTiddlyWikiSave
 
 private command _ExportHtmlTiddler sContent
    -- tw is exporting json

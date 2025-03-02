@@ -82,6 +82,11 @@ on menu_Reveal tiddlyView
    display_TiddlyWiki "https://sukima.github.io/tiddlywiki-reveal-js/", rightView, false
 end menu_Reveal
 
+on menu_PluginLibrary tiddlyView
+   put the right_View of tiddlyView into rightView
+   display_Browser "https://tw-cpl.netlify.app/#Welcome:Index%20Welcome", rightView
+end menu_PluginLibrary
+
 private on __
 end __
 
