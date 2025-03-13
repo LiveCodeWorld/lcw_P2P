@@ -18,13 +18,19 @@ local LocalArray
 --> Menu | Props
 -
 getprop menu_Target [tObject]
-   put the display_View of tObject into LocalArray ["dView"]
-   put the displayed_Object of tObject into sObject
-   return sObject
+   put display_MenuTarget (tObject) into dView
+   --
+   put the tiddly_View of dView into tiddlyView
+   if exists (tiddlyView) then
+      return tiddlyView
+   else
+      put the right_View of dView into rightView
+      return rightView
+   end if
 end menu_Target
 
 private function _dView
-   return LocalArray ["dView"]
+   return display_View()
 end _dView
 
 getprop menu_CheckTarget [dView]
@@ -35,45 +41,41 @@ end menu_CheckTarget
 --> Global | TiddlyWiki | Plugins | Menu
 -
 on menu_TiddlyWeb tiddlyView
-   put the right_View of tiddlyView into rightView
-   display_TiddlyWiki "https://tiddlywiki.com/#GettingStarted", rightView, false
+   display_TiddlyWiki "https://tiddlywiki.com/#GettingStarted", tiddlyView, false
 end menu_TiddlyWeb
 
 on menu_TiddlyDev tiddlyView
-   put the right_View of tiddlyView into rightView
-   display_TiddlyWiki "https://tiddlywiki.com/dev/", rightView, false
+   display_TiddlyWiki "https://tiddlywiki.com/dev/", tiddlyView, false
 end menu_TiddlyDev
 
 private on _
 end _
 
+on menu_Shiraz tiddlyView
+   display_TiddlyWiki "https://kookma.github.io/TW-Shiraz/", tiddlyView, false
+end menu_Shiraz
+
 on menu_Kara tiddlyView
-   put the right_View of tiddlyView into rightView
-   display_TiddlyWiki "https://kookma.github.io/TW-Kara/#", rightView, false
+   display_TiddlyWiki "https://kookma.github.io/TW-Kara/#", tiddlyView, false
 end menu_Kara
 
 on menu_TodoList tiddlyView
-   put the right_View of tiddlyView into rightView
-   display_TiddlyWiki "https://kookma.github.io/TW-Todolist/#Install", rightView, false
+   display_TiddlyWiki "https://kookma.github.io/TW-Todolist/#Install", tiddlyView, false
 end menu_TodoList
 
 on menu_Projectify tiddlyView
-   put the right_View of tiddlyView into rightView
-   display_TiddlyWiki "https://thaddeusjiang.github.io/Projectify/demo.html", rightView, false
+   display_TiddlyWiki "https://thaddeusjiang.github.io/Projectify/demo.html", tiddlyView, false
 end menu_Projectify
 
 on menu_RevealJs tiddlyView
-   put the right_View of tiddlyView into rightView
-   display_TiddlyWiki "https://sukima.github.io/tiddlywiki-reveal-js/", rightView, false
+   display_TiddlyWiki "https://sukima.github.io/tiddlywiki-reveal-js/", tiddlyView, false
 end menu_RevealJs
 
 on menu_TwScripts tiddlyView
-   put the right_View of tiddlyView into rightView
-   display_TiddlyWiki "https://kookma.github.io/TW-Scripts/"
+   display_TiddlyWiki "https://kookma.github.io/TW-Scripts/", tiddlyView, false
 end menu_TwScripts
 
 on menu_Mermaid tiddlyView
-   put the right_View of tiddlyView into rightView
    display_TiddlyWiki "https://efurlanm.github.io/mermaid-tw5/", rightView, false
 end menu_Mermaid
 
@@ -84,16 +86,19 @@ end menu_Reveal
 
 on menu_PluginLibrary tiddlyView
    put the right_View of tiddlyView into rightView
-   display_Browser "https://tw-cpl.netlify.app/#Welcome:Index%20Welcome", rightView
+   display_Browser "https://tw-cpl.netlify.app/#Welcome:Index%20Welcome", rightView, false
 end menu_PluginLibrary
+
+on menu_TidsToTable tiddlyView
+   display_Browser "https://tids-to-table.tiddlyhost.com/", rightView, false
+end menu_TidsToTable
 
 private on __
 end __
 
-on menu_ChatGpt tiddlyView
-   put the right_View of tiddlyView into rightView
-   display_Browser "https://chatgpt.com/c/679dc0a9-d4d8-8004-b7f1-e48fa9bb6fa3", rightView
-end menu_ChatGpt
+on menu_ChatGpt.G tiddlyView
+   display_Browser "https://chatgpt.com/c/679dc0a9-d4d8-8004-b7f1-e48fa9bb6fa3", rightView, false
+end menu_ChatGpt.G
 
 on menu_IcoMoon
    put "https://icomoon.io/app/#/select" into someURL

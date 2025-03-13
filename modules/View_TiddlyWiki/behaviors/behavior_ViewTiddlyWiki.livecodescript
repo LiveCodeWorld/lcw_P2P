@@ -7,11 +7,158 @@ name: behavior_ViewTiddlyWiki
 type: behavior
 version: 0.5
 
-/*Here you make make notes as a basic form of help for this view.
-Full help text can be found on the linked wiki for the view.*/
+/*
+This is the behavior for a browser widget that is customised to host a TiddlyWiki file.
+*/
 
 local LocalArray
 constant NotificationTemplate = "$:/temp/NotificationTemplate"
+
+--> Objects
+-
+getprop tiddly_View
+   return the long id of me
+end tiddly_View
+
+getprop view_Object
+   return the long id of me
+end view_Object
+
+getprop browser_View
+   return the long id of me
+end browser_View
+
+
+--> Events
+-
+on preOpenControl
+   tiddly_Init
+   pass preOpenControl
+end preOpenControl
+
+on browserUnhandledLoadRequest blobUrl
+   -- Check if the URL is a Blob URL
+   switch
+      case blobUrl begins with "blob:null/"
+      case blobUrl begins with "blob:"
+         _HandleTiddlyWikiSave blobUrl
+         break
+      default
+         -- tiddler:%20%3CtiddlerTitle%3E
+         put "URL not recognized as a Blob URL:" && urldecode (blobUrl)
+         -- breakpoint
+   end switch
+end browserUnhandledLoadRequest
+
+
+--> Init
+-
+on tiddly_Init
+   _SetJavascriptHandlers
+   --
+   put the browser_File of me into tiddlyFile
+   set the itemdelimiter to slash
+   put item -1 of tiddlyFile into shortFile
+   switch
+      case tiddlyFile is empty
+         # Not a file (url or empty)
+         set the stack_Label of me to the url of me
+         break
+      case there is a file tiddlyFile
+      case shortFile = "README.html"
+         put item -5 to -1 of tiddlyFile into relPath
+         set the stack_Label of me to relPath
+         --
+         put the tiddly_Label of me into tiddlyLabel
+         set the tiddly_SubTitle of me to tiddlyLabel
+         break
+      default
+         put the browser_URL of me into tiddlyURL
+         set the tiddly_Notification of me to "No browser_File:" && tiddlyFile
+   end switch
+   --
+   set the card_Colour of me to "random" -- so we know behavior is active
+   send "tiddly_InstallGuideTools" to me in 2 ticks
+end tiddly_Init
+
+
+--> Tiddly | Javascript
+-
+on tiddlyButton_Call sMessage
+   local sResult
+   put the long id of me into tiddlyView -- more reliable if in behavior
+   
+   # Strip enclosing quotes (should fix javascript)
+   text_StripEnclosing sMessage, quote
+   put "tiddly_" & word 1 of sMessage into tiddlyCommand
+   dispatch tiddlyCommand with sMessage,tiddlyView
+   --
+   switch it
+      case "handled" -- the message was handled and not passed
+         break
+      case "unhandled" -- no matching handlers were found
+         tiddly_UnhandledCommand sMessage, tiddlyView
+         break
+      case "passed"
+         breakpoint
+   end switch
+end tiddlyButton_Call
+
+command tiddly_InstallGuideTools pAppend
+   set the cursor to watch
+   put pAppend is not false into pAppend
+   put the long id of me into tiddlyView
+   put the menuBar_View of tiddlyView into mGroup
+   
+   # Get section "Menus" of tiddler "Guide Tools"
+   put the tiddler_Text ["Guide Tools"] of tiddlyView into mdText
+   put markdown_GetSection (mdText, "Menus") into mSection
+   if mSection is empty then return empty
+   
+   # Filter for linked bullets
+   -- filter lines of mSection with "- *" into mLines
+   put "- \[\[(.+)\]\]" into rPattern
+   filter lines of mSection with regex pattern rPattern into mLines
+   
+   repeat for each line mLine in mLines
+      if matchText (mLine, rPattern, mLabel) then
+         -- put mLabel & CR after mLabels
+         put label_ToMenuTitle (mLabel) into mTitle
+         put mTitle & CR after mTitles
+      end if
+   end repeat
+   
+   set the menubar_Titles [pAppend] of mGroup to mTitles
+   return mLabels
+end tiddly_InstallGuideTools
+
+command guide_ExternalLink sUrl
+   put the long id of the target into dView
+   --
+   put merge ("How would you like to open [[sUrl]]") into someQuestion
+   -- answer someQuestion with "Cancel" or "LiveBrowser" or "Firefox" as sheet
+   answer someQuestion with "Cancel" or "Firefox" as sheet
+   switch it
+      case "Cancel"
+         exit to top
+         break
+      default
+         launch url sUrl -- Opens the link in the default browser
+         set the clipboardData to sUrl
+         break
+   end switch
+end guide_ExternalLink
+
+command guide_Go sUrl
+   put item 3 to -1 of sUrl into guideName
+   if exists (stack guideName) then
+      go to stack guideName
+   else
+      put the long id of the target into dView
+      lcw_Answer "Launch guide '[[guideName]]'?", dView, guideName
+   end if
+end guide_Go
+
 
 --> Working on
 -
@@ -64,39 +211,17 @@ function tiddler_GetPluginJavascript scaffoldName, pluginTitle
    */
 end tiddler_GetPluginJavascript
 
-
---> Init
--
-getprop test_Behavior
-   -- let's check this behavior is attached (checked on openStack)
-   return true
-end test_Behavior
-
-on tiddly_Init
-   _SetJavascriptHandlers
-   --
-   put the browser_File of me into tiddlyFile
-   set the itemdelimiter to slash
-   put item -1 of tiddlyFile into shortFile
-   switch
-      case tiddlyFile is empty
-         set the stack_Label of me to empty
-         break
-      case there is a file tiddlyFile
-      case shortFile = "README.html"
-         put item -5 to -1 of tiddlyFile into relPath
-         set the stack_Label of me to relPath
-         --
-         put the tiddly_Label of me into tiddlyLabel
-         set the tiddly_SubTitle of me to tiddlyLabel
-         break
-      default
-         put the browser_URL of me into tiddlyURL
-         set the tiddly_Notification of me to "No browser_File:" && tiddlyFile
-   end switch
-   --
-   set the card_Colour of me to "random" -- so we know behavior is active
-end tiddly_Init
+on tiddly_FixBehavior
+   # Fix behavior (widgets lose behavior bug)
+   put "behavior_ViewTiddlyWiki" into bName
+   if exists (stack bName) is false then
+      breakpoint
+      return "Error, cannot locate stack:" && bName
+   end if
+   put the name of stack bName into bObject
+   set the behavior of me to bObject
+   return bObject
+end tiddly_FixBehavior
 
 private command _ExportTiddlyJson tiddlyJSON
    if char 1 to 2 of tiddlyJSON is not "[{" then
@@ -122,6 +247,11 @@ end _ExportTiddlyJson
 
 --> Tiddly | Title
 -
+getprop test_Behavior
+   -- let's check this behavior is attached (checked on openStack)
+   return true
+end test_Behavior
+
 getprop tiddler_Text [pTiddlerTitle]
    # JavaScript to safely retrieve the tiddler text or return an empty string if it doesn't exist
    put merge("var tiddlerText = $tw.wiki.getTiddlerText('[[pTiddlerTitle]]') || ''; liveCode.javascript_Result(tiddlerText);") into sJavascript
@@ -188,6 +318,18 @@ end card_Colour
 
 --> Events | Javascript
 -
+on externalLinkHandler sUrl
+   -- url_Deconstruct sUrl, someProtocol, urlDomain, urlPath, shortName, fileExtension, uName, pWord
+   set the itemdelimiter to slash
+   switch item 1 of sUrl
+      case "guide:"
+         dispatch "guide_Go" to me with sUrl
+         break
+      default
+         dispatch "guide_ExternalLink" to me with sUrl
+   end switch
+end externalLinkHandler
+
 on javascript_Result sResult
    -- requires "javascript_Result" to be among the lines of the javascripthandlers of me
    -- Generic handler used to return result to "getprop"
@@ -196,39 +338,6 @@ on javascript_Result sResult
    put sResult into LocalArray ["sResult"]
    return sResult
 end javascript_Result
-
-on externalLinkHandler sUrl
-   -- url_Deconstruct sUrl, someProtocol, urlDomain, urlPath, shortName, fileExtension, uName, pWord
-   set the itemdelimiter to slash
-   switch item 1 of sUrl
-      case "guide:"
-         put item 3 to -1 of sUrl into guideName
-         if exists (stack guideName) then
-            go to stack guideName
-         else
-            put the long id of me into dView
-            lcw_Answer "Launch guide '[[guideName]]'?", dView, guideName
-         end if
-         break
-      default
-         put the long id of me into dView
-         --
-         put merge ("How would you like to open [[pUrl]]") into someQuestion
-         answer someQuestion with "Cancel" or "LiveBrowser" or "Firefox" as sheet
-         switch it
-            case "Cancel"
-               exit to top
-               break
-            case "LiveBrowser"
-               display_Browser sUrl
-               break
-            default
-               launch url sUrl -- Opens the link in the default browser
-               set the clipboardData to sUrl
-               break
-         end switch
-   end switch
-end externalLinkHandler
 
 private command _SetJavascriptHandlers
    put "javascript_Result,tiddlyButton_Call,externalLinkHandler" into jHandlers
@@ -255,29 +364,6 @@ command _InjectExternalJavascript
    --
    set the tiddly_Notification of me to the params
 end _InjectExternalJavascript
-
-
---> Events
--
-on preOpenControl
-   -- does not seem to _SetJavascriptHandlers
-   tiddly_Init
-   pass preOpenControl
-end preOpenControl
-
-on browserUnhandledLoadRequest blobUrl
-   -- Check if the URL is a Blob URL
-   switch
-      case blobUrl begins with "blob:null/"
-      case blobUrl begins with "blob:"
-         _HandleTiddlyWikiSave blobUrl
-         break
-      default
-         -- tiddler:%20%3CtiddlerTitle%3E
-         put "URL not recognized as a Blob URL:" && urldecode (blobUrl)
-         -- breakpoint
-   end switch
-end browserUnhandledLoadRequest
 
 private command _HandleTiddlyWikiSave blobUrl
    set the blob_URl of me to blobUrl
@@ -372,7 +458,7 @@ private command _ExportFullTiddlyHtml sContent
 end _ExportFullTiddlyHtml
 
 
---> Tiddler
+--> Tiddly | Save
 -
 getprop tiddly_Saved
    # JavaScript to check if the wiki has unsaved changes and return the exact message
@@ -405,9 +491,6 @@ setprop blob_URl blobUrl
    set the uOPN["blobUrl"] of me to blobUrl
 end blob_URl
 
-
---> Tiddler | Array
--
 getprop tiddler_Html [pTiddlerName]
    # JavaScript to render the tiddler
    -- parseAsInline: true seems t create errors  
@@ -688,8 +771,7 @@ getprop browser_File [pUseShort]
    if there is a file sFile then
       return sFile
    else
-      put the url of me into sURL -- this is a bug.
-      return empty
+      return empty -- empty or a url (not a file)
    end if
 end browser_File
 
@@ -816,17 +898,17 @@ end tiddlyWiki_JSON
 --> Pretty
 -
 setprop show_Tiddler pTitle
-   -- JavaScript to update $:/StoryList and display the tiddler
+   # JavaScript to update $:/StoryList and display the tiddler
    put "var modificationFields = $tw.wiki.getModificationFields();" & \
          "$tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: ['" & pTitle & "']}, modificationFields);" into sJavascript
    
-   -- Execute the JavaScript in the browser widget
+   # Execute the JavaScript in the browser widget
    do sJavascript in me
    return the result
 end show_Tiddler
 
 setprop hide_Tiddler pTitle
-   -- JavaScript to remove the tiddler from $:/StoryList
+   # JavaScript to remove the tiddler from $:/StoryList
    put "var storyList = $tw.wiki.getTiddlerList('$:/StoryList');" & \
          "var index = storyList.indexOf('" & pTitle & "');" & \
          "if (index > -1) {" & \
@@ -835,27 +917,27 @@ setprop hide_Tiddler pTitle
          "    $tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: storyList}, modificationFields);" & \
          "}" into sJavascript
    
-   -- Execute the JavaScript in the browser widget
+   # Execute the JavaScript in the browser widget
    do sJavascript in me
    return the result
 end hide_Tiddler
 
 setprop show_Tiddlers pTitles
-   -- Convert the comma-separated list into a JavaScript array
+   # Convert the comma-separated list into a JavaScript array
    put "[" & quote & replaceText(pTitles, ",", quote & "," & quote) & quote & "]" into tList
    
-   -- JavaScript to update $:/StoryList with the list of tiddlers
+   # JavaScript to update $:/StoryList with the list of tiddlers
    put "var modificationFields = $tw.wiki.getModificationFields();" & \
          "$tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: " & tList & "}, modificationFields);" into sJavascript
    
-   -- Execute the JavaScript in the browser widget
+   # Execute the JavaScript in the browser widget
    do sJavascript in me
    put the result into jResult
    return jResult
 end show_Tiddlers
 
 setprop prepend_Tiddler pTitle
-   -- JavaScript to prepend the tiddler to the existing $:/StoryList
+   # JavaScript to prepend the tiddler to the existing $:/StoryList
    put "var storyList = $tw.wiki.getTiddlerList('$:/StoryList');" & \
          "if (!storyList.includes('" & pTitle & "')) {" & \
          "    storyList.unshift('" & pTitle & "');" & \
@@ -863,14 +945,14 @@ setprop prepend_Tiddler pTitle
          "    $tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: storyList}, modificationFields);" & \
          "}" into sJavascript
    
-   -- Execute the JavaScript in the browser widget
+   # Execute the JavaScript in the browser widget
    do sJavascript in me
    put the result into jResult
    return jResult
 end prepend_Tiddler
 
 setprop append_Tiddler pTitle
-   -- JavaScript to append the tiddler to the existing $:/StoryList
+   # JavaScript to append the tiddler to the existing $:/StoryList
    put "var storyList = $tw.wiki.getTiddlerList('$:/StoryList');" & \
          "if (!storyList.includes('" & pTitle & "')) {" & \
          "    storyList.push('" & pTitle & "');" & \
@@ -878,7 +960,7 @@ setprop append_Tiddler pTitle
          "    $tw.wiki.addTiddler({title: '$:/StoryList', text: '', list: storyList}, modificationFields);" & \
          "}" into sJavascript
    
-   -- Execute the JavaScript in the browser widget
+   # Execute the JavaScript in the browser widget
    do sJavascript in me
    put the result into jResult
    return jResult
@@ -950,6 +1032,7 @@ setprop tiddler_Markdown [pTitle] sContent
    if pTitle is empty then put the ticks into pTitle
    
    # Normalize to ensure safe JavaScript string handling but preserve line breaks
+   _NormalizeTitle pTitle
    _Normalize sContent
    
    set the tiddler_RawMarkdown [pTitle] of me to sContent
@@ -1183,16 +1266,19 @@ private command _NormalizeEntities @pContent --not used?
 end _NormalizeEntities
 
 private command _NormalizeTitle @pTitle
-   -- Replace problematic characters in titles
+   # Ensure title is not empty
+   if pTitle is empty then put "Untitled Tiddler" into pTitle
+   
+   # Trim whitespace
+   put word 1 to -1 of pTitle into pTitle
+   
+   # Replace problematic characters in titles
    replace "[" with "{" in pTitle
    replace "]" with "}" in pTitle
    replace "\" with "\\" in pTitle
    
-   -- Trim whitespace
-   -- put trim (pTitle) into pTitle
-   
-   -- Ensure title is not empty
-   if pTitle is empty then put "Untitled Tiddler" into pTitle
+   # Wrap if more than one word
+   -- if the number of words of pTitle > 1 then put "[[" & pTitle & "]]" into pTitle
    
    return pTitle
 end _NormalizeTitle

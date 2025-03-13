@@ -15,10 +15,116 @@ A library to help organise multiple TiddlyWiki's
 -
 constant TiddlyModuleName = "View|TiddlyWiki"
 constant DefaultShortTemplate = "empty.html"
+local LocalArray
+
+
+--> Init
+-
+command tiddly_InitMenuCache
+   tiddly_LoadReadmeData
+   tiddly_LoadOpenWikiMenu
+   --
+   tiddly_LoadShortTemplates
+end tiddly_InitMenuCache
+
+command tiddly_LoadShortFiles
+   # Default asset Files of View|TiddlyWiki Template
+   put view_GetTemplateObject ("View|TiddlyWiki") into tiddlyTemplate
+   put the module_ShortHtmlFiles of tiddlyTemplate into mFiles
+   --
+   put mFiles into LocalArray ["tiddly_ListShortFiles"]
+end tiddly_LoadShortFiles
+
+command tiddly_LoadShortTemplates
+   # Default asset Files of View|TiddlyWiki Template
+   put view_GetTemplateObject ("View|TiddlyWiki") into tiddlyTemplate
+   put the module_ShortHtmlFiles ["template"] of tiddlyTemplate into tFiles
+   
+   put tFiles into LocalArray ["tiddly_ShortTemplates"]
+end tiddly_LoadShortTemplates
+
+command tiddly_LoadReadmeData
+   put _ListReadmeData() into readmeData
+   put readmeData into LocalArray ["tiddly_ReadmeData"]
+end tiddly_LoadReadmeData
+
+command tiddly_LoadOpenWikiMenu
+   put tiddly_ConstructOpenWikiMenu() into LocalArray ["tiddly_OpenWikiMenu"]
+end tiddly_LoadOpenWikiMenu
+
+function tiddly_GetReadmeData pForce
+   if pForce is true then tiddly_LoadReadmeData
+   --
+   put LocalArray ["tiddly_ReadmeData"] into readmeData
+   return readmeData
+end tiddly_GetReadmeData
+
+function tiddly_ListShortTemplates pForce
+   if pForce is true then tiddly_LoadShortTemplates
+   --
+   put LocalArray ["tiddly_ShortTemplates"] into tFiles
+   return tFiles
+end tiddly_ListShortTemplates
+
+function tiddly_ListShortFiles pForce
+   if pForce is true then tiddly_LoadShortFiles
+   --
+   put LocalArray ["tiddly_ListShortFiles"] into mFiles
+   return mFiles
+end tiddly_ListShortFiles
 
 
 --> Working on
 -
+getprop guide_Array
+   put the module_Array of the target into moduleArray
+   if moduleArray is not an array then
+      put module_ConstructArray (moduleFolder) into moduleArray
+      breakpoint
+   end if
+   --
+   put moduleArray ["stackFileArray"] into stackFileArray
+   return stackFileArray
+end guide_Array
+
+getprop readme_Folder
+   put the module_Folder of the target into readmeFolder
+   if there is not a folder readmeFolder then
+      put the project_Folder of the target into readmeFolder
+   end if
+   return readmeFolder
+end readme_Folder
+
+function tiddly_OpenReadmeNames
+   put tiddly_ReadmeNameArray() into nameArray
+   put keys (nameArray) into rNames
+   sort rNames
+   return rNames
+end tiddly_OpenReadmeNames
+
+function tiddly_ReadmeNameArray
+   return LocalArray ["tiddly_ReadmeNameArray"]
+end tiddly_ReadmeNameArray
+
+function tiddly_OpenWikiMenu pForce
+   put LocalArray ["tiddly_OpenWikiMenu"] into openWikiMenu
+   return openWikiMenu
+end tiddly_OpenWikiMenu
+
+function tiddly_ConstructOpenWikiMenu
+   put stack_ListNames("Project *") into myMenu
+   get stack_ListNames("Module *")
+   if it is empty then
+      return myMenu
+   else if myMenu is empty then
+      return it
+   else
+      put CR & "-" after myMenu
+      put CR & it after myMenu
+      return myMenu
+   end if
+end tiddly_ConstructOpenWikiMenu
+
 function readme_GetColour readMeFile
    -- we want to use the flag colour
    put "random" into sColour
@@ -40,8 +146,9 @@ command display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
    switch
       case exists (pTiddlyView)
          put pTiddlyView into tiddlyView
+         tiddly_SetBehavior tiddlyView
+         
          set the browser_URL of tiddlyView to tiddlyURL
-         -- set the stack_Label of tiddlyView to subTitle
          break
       case exists (stack readmeLabel)
          go to stack readmeLabel
@@ -52,7 +159,6 @@ command display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
          put the result into tiddlyView
    end switch
    
-   
    put the stack_Name of tiddlyView into stackName -- should already be set
    --- put tiddly_StackNameToLabel (stackName) into tiddlyLabel
    set the tiddly_Title [subTitle] of tiddlyView to tiddlyTitle
@@ -62,6 +168,18 @@ command display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
    
    return tiddlyView
 end display_TiddlyURL
+
+command tiddly_SetBehavior tiddlyView, pWhich
+   switch pWhich
+      case "Wiki"
+         put the name of stack "behavior_ViewWikiBrowser" into bObject
+         break
+      default
+         put the name of stack "behavior_ViewTiddlyWiki" into bObject
+   end switch
+   --
+   set the behavior of tiddlyView to bObject
+end tiddly_SetBehavior
 
 command tiddly_CreateModuleReadMe moduleName, pShortFile
    put tiddly_DefaultFile (pShortFile) into tiddlyDefaultFile
@@ -120,14 +238,6 @@ getprop module_ReadMeFile
    put moduleFolder & "README.html" into readMeFile
    return readMeFile
 end module_ReadMeFile
-
-getprop readme_Folder
-   -- put the module_Folder of the target into moduleFolder
-   put the browser_File of the target into readmeFolder
-   set the itemdelimiter to slash
-   put empty into item -1 of readmeFolder
-   return readmeFolder
-end readme_Folder
 
 getprop project_ReadmeFile
    put the project_Name of the target into projectName
@@ -245,31 +355,6 @@ command display_TiddlyFile readMeFile, pTiddlyView, pFullScreen
    put the result into tiddlyView
    return tiddlyView
 end display_TiddlyFile
-
-
---> Env
--
-function env_ListReadmePaths
-   put _ListReadmeArray() into readmeData
-   --
-   put readmeData ["projectReadmeFiles"] into projectReadmeFiles
-   put readmeData ["moduleReadmeFiles"] into moduleReadmeFiles
-   return word 1 to -1 of moduleReadmeFiles & CR & projectReadmeFiles
-end env_ListReadmePaths
-
-function env_ListReadmeNames
-   put _ListReadmeArray() into readmeData
-   --
-   put readmeData ["projectReadmeNames"] into projectReadmeNames
-   put readmeData ["moduleReadmeNames"] into moduleReadmeNames
-   return word 1 to -1 of moduleReadmeNames & CR & projectReadmeNames
-end env_ListReadmeNames
-
-function env_ReadmeNameArray
-   put _ListReadmeArray() into readmeData
-   put readmeData ["nameArray"] into nameArray
-   return nameArray
-end env_ReadmeNameArray
 
 function project_ConstructReadMeFile projectName
    put project_GetFolder (projectName) into projectFolder
@@ -408,16 +493,41 @@ function tiddly_DefaultFolder
 end tiddly_DefaultFolder
 
 
+--> Env
+-
+function env_ListReadmePaths pForce
+   put tiddly_GetReadmeData (pForce) into readmeData
+   --
+   put readmeData ["projectReadmeFiles"] into projectReadmeFiles
+   put readmeData ["moduleReadmeFiles"] into moduleReadmeFiles
+   return word 1 to -1 of moduleReadmeFiles & CR & projectReadmeFiles
+end env_ListReadmePaths
+
+function env_ListReadmeNames pForce
+   put tiddly_GetReadmeData (pForce) into readmeData
+   --
+   put readmeData ["projectReadmeNames"] into projectReadmeNames
+   put readmeData ["moduleReadmeNames"] into moduleReadmeNames
+   return word 1 to -1 of moduleReadmeNames & CR & projectReadmeNames
+end env_ListReadmeNames
+
+function env_ReadmeNameArray pForce
+   put tiddly_GetReadmeData (pForce) into readmeData
+   put readmeData ["nameArray"] into nameArray
+   return nameArray
+end env_ReadmeNameArray
+
+
 --> Private
 -
-private function _ListReadmeArray
+private function _ListReadmeData
    put env_GetRepoFolder() into repoFolder
    put folders (repoFolder) into shortFolders
    set the itemdelimiter to slash
    repeat for each line projectName in shortFolders
       if char 1 of projectName = "." then next repeat
       --
-      set the cursor to busy
+      -- set the cursor to busy
       put repoFolder & projectName & "/README.html" into sFile
       if there is a file sFile then
          put sFile & CR after projectReadmeFiles
@@ -427,7 +537,7 @@ private function _ListReadmeArray
       
       put project_ListModuleFolders (projectName) into moduleFolders
       repeat for each line moduleFolder in moduleFolders
-         set the cursor to busy
+         -- set the cursor to busy
          --
          put moduleFolder & "README.html" into sFile
          if there is a file sFile then
@@ -453,4 +563,4 @@ private function _ListReadmeArray
    put moduleReadmeFiles into readmeData ["moduleReadmeFiles"]
    --
    return readmeData
-end _ListReadmeArray
+end _ListReadmeData
