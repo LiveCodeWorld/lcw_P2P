@@ -28,15 +28,66 @@ getprop menu_Target [tObject]
       put tObject into tiddlyView
    end if
    
-   put the tiddly_ListTitles of tiddlyView into LocalArray ["sTitles"]
+   -- put the tiddly_ListTitles of tiddlyView into LocalArray ["sTitles"]
    put tiddly_ListShortFiles() into LocalArray ["mFiles"]
    
    return tiddlyView
 end menu_Target
 
+-- getprop checked_LiveCodePlugin [tiddlyView]
+   return the tiddler_Exists [LiveCodePluginTitle] of tiddlyView
+end checked_LiveCodePlugin
+
 getprop menu_CheckTarget [tiddlyView]
    return exists (tiddlyView)
 end menu_CheckTarget
+
+getprop openReadme_Params
+   put tiddly_OpenReadmeNames() into rNames
+   return rNames
+end openReadme_Params
+
+getprop tiddlywiki_Param [tiddlyView]
+   put the browser_File of tiddlyView into htmlFile
+   set the itemdelimiter to slash
+   return item -1 of htmlFile
+end tiddlywiki_Param
+
+getprop tiddlywiki_Params
+   put LocalArray ["mFiles"] into shortFiles
+   filter shortFiles with "*.html"
+   return shortFiles
+end tiddlywiki_Params
+
+getprop tiddlyTemplate_Params
+   put tiddly_ListShortTemplates() into shortFiles
+   filter shortFiles with "*.html"
+   return shortFiles
+end tiddlyTemplate_Params
+
+getprop checked_ReadmeTiddler [tiddlyView]
+   return "ReadMePage" is among the lines of LocalArray ["sTitles"]
+end checked_ReadmeTiddler
+
+getprop checked_FullScreen [tiddlyView]
+   put the stack_Name of tiddlyView into sName
+   return the fullscreen of stack sName
+end checked_FullScreen
+
+private on ___
+end ___
+
+getprop checked_ShowMenu [tiddlyView]
+   put the menubar_View of tiddlyView into mView
+   if exists (mView) is false then return false -- bug should not be needed
+   --
+   put the show_Menu of mView into sBoolean
+   return sBoolean
+end checked_ShowMenu
+
+getprop goToWiki_Params [tiddlyView]
+   return tiddly_OpenWikiMenu()
+end goToWiki_Params
 
 
 --> Global | TiddlyWiki | Menu
@@ -49,21 +100,12 @@ on menu_GoToWiki tiddlyView, stackName
    go to stack stackName
 end menu_GoToWiki
 
-getprop goToWiki_Params [tiddlyView]
-   return tiddly_OpenWikiMenu()
-end goToWiki_Params
-
 on menu_OpenReadme tiddlyView, rName
    put env_ReadmeNameArray() into nameArray
    put nameArray [rName] into tiddlyFile
    --
    display_TiddlyFile tiddlyFile
 end menu_OpenReadme
-
-getprop openReadme_Params
-   put tiddly_OpenReadmeNames() into rNames
-   return rNames
-end openReadme_Params
 
 on submenu_TiddlyPlugins
    -- return "Global | TiddlyWiki | Plugins | Menu"
@@ -87,33 +129,12 @@ on menu_TiddlyWiki tiddlyView, shortFile
    end if
 end menu_TiddlyWiki
 
-getprop tiddlywiki_Param [tiddlyView]
-   put the browser_File of tiddlyView into htmlFile
-   set the itemdelimiter to slash
-   return item -1 of htmlFile
-end tiddlywiki_Param
-
-getprop tiddlywiki_Params
-   put LocalArray ["mFiles"] into shortFiles
-   filter shortFiles with "*.html"
-   return shortFiles
-end tiddlywiki_Params
-
 on menu_TiddlyTemplate tiddlyView, shortFile
    display_TiddlyTemplate shortFile, tiddlyView
 end menu_TiddlyTemplate
 
-getprop tiddlyTemplate_Params
-   put tiddly_ListShortTemplates() into shortFiles
-   filter shortFiles with "*.html"
-   return shortFiles
-end tiddlyTemplate_Params
-
 private on __
 end __
-
-private on ___
-end ___
 
 on menu_ReadmeTiddler tiddlyView
    put the tiddler_Exists [ReadMePage] of tiddlyView into tExists
@@ -124,18 +145,10 @@ on menu_ReadmeTiddler tiddlyView
    set the show_Tiddler of tiddlyView to ReadMePage
 end menu_ReadmeTiddler
 
-getprop checked_ReadmeTiddler [tiddlyView]
-   return "ReadMePage" is among the lines of LocalArray ["sTitles"]
-end checked_ReadmeTiddler
-
 on menu_LiveCodePlugin tiddlyView
    set the tiddler_Plugin [LiveCodePluginTitle] of tiddlyView to "WikiScript"
    set the show_Tiddler of tiddlyView to LiveCodePluginTitle
 end menu_LiveCodePlugin
-
-getprop checked_LiveCodePlugin [tiddlyView]
-   return the tiddler_Exists [LiveCodePluginTitle] of tiddlyView
-end checked_LiveCodePlugin
 
 private on ____
 end ____
@@ -214,20 +227,11 @@ on menu_Recolour tiddlyView
    set the card_Colour of tiddlyView to "random"
 end menu_Recolour
 
-on menu_Refresh tiddlyView
-   dispatch "preOpenControl" to tiddlyView
-end menu_Refresh
-
 on menu_FullScreen tiddlyView
    put the stack_Name of tiddlyView into sName
    put the fullscreen of stack sName into isFullScreen
    set the fullscreen of stack sName to (isFullScreen is false)
 end menu_FullScreen
-
-getprop checked_FullScreen [tiddlyView]
-   put the stack_Name of tiddlyView into sName
-   return the fullscreen of stack sName
-end checked_FullScreen
 
 on menu_RevealReadme tiddlyView
    put the browser_File of tiddlyView into tiddlyFile
@@ -250,6 +254,19 @@ on menu_DraftAbout tiddlyView
    set the tiddler_Text ["ProjectName"] of tiddlyView to projectName
    set the tiddler_Text ["About"] of tiddlyView to aboutText
 end menu_DraftAbout
+
+on menu_ShowMenu tiddlyView
+   put the menubar_View of tiddlyView into mView
+   menuBar_ToggleShowMenu mView
+end menu_ShowMenu
+
+on menu_Refresh tiddlyView
+   dispatch "preOpenControl" to tiddlyView
+end menu_Refresh
+
+on menu_LoadReadmeData
+   tiddly_LoadReadmeData
+end menu_LoadReadmeData
 
 on submenu_Dev
    return menu_DevTitle ("Global | TiddlyWiki | Menu")

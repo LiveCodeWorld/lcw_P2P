@@ -97,15 +97,17 @@ private on __
 end __
 
 on menu_ChatGpt.G tiddlyView
+   put the right_View of tiddlyView into rightView
    display_Browser "https://chatgpt.com/c/679dc0a9-d4d8-8004-b7f1-e48fa9bb6fa3", rightView, false
 end menu_ChatGpt.G
 
-on menu_IcoMoon
+on menu_IcoMoon tiddlyView
    put "https://icomoon.io/app/#/select" into someURL
    --
    if the shiftKey is "down" then
       display_Template "View|Browser"
    else
-      display_Browser someURL
+      put the right_View of tiddlyView into rightView
+      display_Browser someURL, rightView, false
    end if
 end menu_IcoMoon
