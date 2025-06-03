@@ -17,7 +17,7 @@ end project_Deps
 
 --> Events
 -
-on preOpenStack 
+on preOpenStack
    if the short name of the defaultstack is not the short name of me then
       pass preOpenStack
    else
@@ -27,8 +27,12 @@ on preOpenStack
 end preOpenStack
 
 on project_PostInit
-   display_ModuleTools "View|TiddlyWiki"
-   display_ModuleTools "View|Guide"
+   try
+      display_ModuleTools "View|TiddlyWiki"
+      display_ModuleTools "View|Guide"
+   catch e
+      breakpoint
+   end try
 end project_PostInit
 
 
