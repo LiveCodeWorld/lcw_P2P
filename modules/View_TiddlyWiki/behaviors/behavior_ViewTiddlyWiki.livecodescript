@@ -1,4 +1,4 @@
-﻿script "behavior_ViewTiddlyWiki" with behavior "behavior_ViewTiddlyWikiDev"
+﻿script "behavior_ViewTiddlyWiki"
 --> MetaData
 -
 copyright: David Bovill
@@ -48,7 +48,7 @@ command init_Module
    put the view_BehaviorStackNames of me into bStackNames
    if the shiftKey is "up" then
       put the long id of me into tObject
-      behavior_SetStackNames stackNames, tObject
+      behavior_SetStackNames bStackNames, tObject
       -- set the behavior_StackNames of me to bStackNames
    end if
    
@@ -872,7 +872,7 @@ function my_CardObject
    put the long id of me into myObject
    put wordOffset ("card", myObject) into wNum
    if wNum = 0 then return empty
-   return word wNum to -1 of targetObject
+   return word wNum to -1 of myObject
 end my_CardObject
 
 getprop stack_Label

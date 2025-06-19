@@ -28,8 +28,12 @@ getprop menu_Target [tObject]
       put tObject into tiddlyView
    end if
    
-   -- put the tiddly_ListTitles of tiddlyView into LocalArray ["sTitles"]
-   put tiddly_ListShortFiles() into LocalArray ["mFiles"]
+   try
+      -- put the tiddly_ListTitles of tiddlyView into LocalArray ["sTitles"]
+      put tiddly_ListShortFiles (true) into LocalArray ["mFiles"]
+   catch e
+      breakpoint
+   end try
    
    return tiddlyView
 end menu_Target
