@@ -39,7 +39,7 @@ getprop menu_Target [tObject]
 end menu_Target
 
 -- getprop checked_LiveCodePlugin [tiddlyView]
-   return the tiddler_Exists [LiveCodePluginTitle] of tiddlyView
+return the tiddler_Exists [LiveCodePluginTitle] of tiddlyView
 end checked_LiveCodePlugin
 
 getprop menu_CheckTarget [tiddlyView]
@@ -111,9 +111,9 @@ on menu_OpenReadme tiddlyView, rName
    display_TiddlyFile tiddlyFile
 end menu_OpenReadme
 
-on submenu_TiddlyPlugins
-   -- return "Global | TiddlyWiki | Plugins | Menu"
-   return the menu_CreateTitle ["Plugins"] of me
+-- on submenu_TiddlyPlugins
+-- return "Global | TiddlyWiki | Plugins | Menu"
+return the menu_CreateTitle ["Plugins"] of me
 end submenu_TiddlyPlugins
 
 private on _

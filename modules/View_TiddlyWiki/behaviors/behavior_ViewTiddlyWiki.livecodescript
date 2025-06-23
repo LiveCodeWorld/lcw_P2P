@@ -1,4 +1,4 @@
-﻿script "behavior_ViewTiddlyWiki"
+﻿script "behavior_ViewTiddlyWiki" with behavior "behavior_ViewBrowser"
 --> MetaData
 -
 copyright: David Bovill
@@ -14,6 +14,31 @@ This is the behavior for a browser widget that is customised to host a TiddlyWik
 
 local LocalArray
 constant NotificationTemplate = "$:/temp/NotificationTemplate"
+
+
+--> Working on
+-
+getprop tiddly_Title
+   get the tiddler_Text ["$:/SiteTitle"] of me
+   if it is empty then
+      beep
+      get the tiddler_Text ["$:/SiteTitle"] of me
+      return it
+   else
+      return it
+   end if
+end tiddly_Title
+
+getprop tiddly_SubTitle
+   get the tiddler_Text ["$:/SiteSubtitle"] of me
+   if it is empty then
+      beep
+      get the tiddler_Text ["$:/SiteSubtitle"] of me
+      return it
+   else
+      return it
+   end if
+end tiddly_SubTitle
 
 
 --> Init
@@ -299,18 +324,10 @@ getprop tiddler_Text [pTiddlerTitle]
    return tiddlerText
 end tiddler_Text
 
-getprop tiddly_SubTitle
-   return the tiddler_Text ["$:/SiteSubtitle"] of me
-end tiddly_SubTitle
-
 setprop tiddly_SubTitle subTitle
    set the tiddler_Text ["$:/SiteSubtitle"] of me to subTitle
    return empty
 end tiddly_SubTitle
-
-getprop tiddly_Title
-   return the tiddler_Text ["$:/SiteTitle"] of me
-end tiddly_Title
 
 setprop tiddly_Title [pStrapline] pTitle
    if pTitle is empty then  return "Error: The title cannot be empty."
@@ -1191,13 +1208,20 @@ private command _HandleTiddlyWikiSave blobUrl
       case sContent is empty
          init_Module
          
-         # Export JSON
-         put the tiddly_JSON of me into tiddlyJSON
-         put the browser_File of me into sFile
+         # Try saving again after init_Module
+         put _GetBlobData (blobUrl) into sContent
+         if sContent is empty then
+            # Export JSON
+            put the tiddly_JSON of me into tiddlyJSON
+            put the browser_File of me into sFile
+            breakpoint
+            --
+            _ExportTiddlyJson tiddlyJSON -- when it is robust
+            return "Error, saving html file:" && sFile
+         end if
          
          breakpoint
-         _ExportTiddlyJson tiddlyJSON -- when it is robust
-         return "Error, saving html file:" && sFile
+         -- continue to export
       case char 1 of sContent = "["
          _ExportTiddlerJson sContent
          break
