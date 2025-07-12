@@ -31,16 +31,19 @@ getprop guide_Array
    return stackFileArray
 end guide_Array
 
-getprop readme_Folder
-   put the module_Folder of the target into readmeFolder
-   if there is not a folder readmeFolder then
-      put the project_Folder of the target into readmeFolder
+setprop tiddly_Behavior sBoolean
+   put module_GetBehavior (TiddlyModuleName) into bObject
+   if exists (bObject) is false then return empty
+   
+   if sBoolean is true then
+      set the behavior_Add of the target to TiddlyModuleName
+   else
+      set the behavior_Remove of the target to TiddlyModuleName
    end if
-   return readmeFolder
-end readme_Folder
+end tiddly_Behavior
 
 
---> Props
+--> Props | Readme
 -
 getprop readMe_Html
    put the readMe_File of the target into readMeFile
@@ -77,16 +80,31 @@ getprop project_ReadmeFile
    end if
 end project_ReadmeFile
 
-setprop tiddly_Behavior sBoolean
-   put module_GetBehavior (TiddlyModuleName) into bObject
-   if exists (bObject) is false then return empty
-   
-   if sBoolean is true then
-      set the behavior_Add of the target to TiddlyModuleName
-   else
-      set the behavior_Remove of the target to TiddlyModuleName
+getprop readme_Folder
+   put the module_Folder of the target into readmeFolder
+   if there is not a folder readmeFolder then
+      put the project_Folder of the target into readmeFolder
    end if
-end tiddly_Behavior
+   return readmeFolder
+end readme_Folder
+
+
+--> Readme | File
+-
+function module_ConstructReadMeFile moduleName
+   if there is not a stack moduleName then
+      return "Error, module does not exists:" && moduleName
+   end if
+   
+   put the module_ReadMeFile of stack moduleName into readMeFile
+   return readMeFile
+end module_ConstructReadMeFile
+
+function project_ConstructReadMeFile projectName
+   put project_GetFolder (projectName) into projectFolder
+   put projectFolder & "README.html" into readMeFile
+   return readMeFile
+end project_ConstructReadMeFile
 
 
 --> Tiddly | Create
@@ -231,15 +249,6 @@ end tiddly_DefaultFolder
 
 --> Module
 -
-function module_ConstructReadMeFile moduleName
-   if there is not a stack moduleName then
-      return "Error, module does not exists:" && moduleName
-   end if
-   
-   put the module_ReadMeFile of stack moduleName into readMeFile
-   return readMeFile
-end module_ConstructReadMeFile
-
 function module_ConstructMarkdown stackFileArray
    repeat for each key stackName in stackFileArray
       put "#" && stackName after mdText
@@ -252,12 +261,3 @@ function module_ConstructMarkdown stackFileArray
    put word 1 to -1 of mdText into mdText
    return mdText
 end module_ConstructMarkdown
-
-
---> Project
--
-function project_ConstructReadMeFile projectName
-   put project_GetFolder (projectName) into projectFolder
-   put projectFolder & "README.html" into readMeFile
-   return readMeFile
-end project_ConstructReadMeFile

@@ -269,7 +269,7 @@ on menu_Refresh tiddlyView
 end menu_Refresh
 
 on menu_LoadReadmeData
-   tiddly_LoadReadmeData
+   tiddly_InitMenuCache
 end menu_LoadReadmeData
 
 on submenu_Dev

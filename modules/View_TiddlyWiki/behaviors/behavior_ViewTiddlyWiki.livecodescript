@@ -18,181 +18,58 @@ constant NotificationTemplate = "$:/temp/NotificationTemplate"
 
 --> Working on
 -
-getprop tiddly_Title
-   get the tiddler_Text ["$:/SiteTitle"] of me
-   if it is empty then
-      beep
-      get the tiddler_Text ["$:/SiteTitle"] of me
-      return it
-   else
-      return it
-   end if
-end tiddly_Title
-
-getprop tiddly_SubTitle
-   get the tiddler_Text ["$:/SiteSubtitle"] of me
-   if it is empty then
-      beep
-      get the tiddler_Text ["$:/SiteSubtitle"] of me
-      return it
-   else
-      return it
-   end if
-end tiddly_SubTitle
 
 
---> Init
+--> Events
 -
-command behavior_SetStackNames stackNames, tObject
-   replace comma with CR in stackNames
-   
-   repeat for each line stackName in stackNames
-      if exists (stack stackName) is false then next repeat
-      put the name of stack stackName into bObject
-      if tObject = bObject then next repeat
-      
-      # Clear bObject behavior to prevent possible recurssion
-      put the behavior of tObject into tBehavior
-      put the behavior of bObject into bBehavior
-      set the behavior of bObject to empty
-      --
-      set the behavior of tObject to bObject
-      put bObject & CR after bObjects
-      --
-      put bObject into tObject
-   end repeat
-   delete char -1 of bObjects
-   return bObjects
-end behavior_SetStackNames
+on browserUnhandledLoadRequest blobUrl
+   -- Check if the URL is a Blob URL
+   switch
+      case blobUrl begins with "blob:null/"
+      case blobUrl begins with "blob:"
+         _HandleTiddlyWikiSave blobUrl
+         break
+      default
+         -- tiddler:%20%3CtiddlerTitle%3E
+         put "URL not recognized as a Blob URL:" && urldecode (blobUrl)
+         -- breakpoint
+   end switch
+end browserUnhandledLoadRequest
 
+on browserDocumentLoadComplete pUrl
+   -- called when url loading ends
+   _InjectExternalJavascript 
+end browserDocumentLoadComplete
 
---> Init
--
-command init_Module
-   # Module Init 
-   put the view_BehaviorStackNames of me into bStackNames
-   if the shiftKey is "up" then
-      put the long id of me into tObject
-      behavior_SetStackNames bStackNames, tObject
-      -- set the behavior_StackNames of me to bStackNames
-   end if
+on preOpenControl
+   -- Don't put any behavior settting scripts in behaviors
+   -- Is this reliably sent?
    
    # Tiddly Init 
-   _SetJavascriptHandlers
-   
-   # Fancy Init
-   -- init_Titles
-   -- init_Menus
-   
+   dispatch "_SetJavascriptHandlers" to tObject
+   dispatch "LayoutControl" to tObject
+   --
    # Display Init
    set the card_Colour of me to "random" -- so we know behavior is active
-end init_Module
+   pass preOpenControl
+end preOpenControl
 
-getprop view_BehaviorStackNames
-   put the uOPN ["view_BehaviorStackNames"] of me into mBehaviorStackNames
-   return mBehaviorStackNames
-end view_BehaviorStackNames
+getprop stack_Label
+   put the stack_Object of the target into stackObject
+   put the label of stackObject into someLabel
+   return someLabel
+end stack_Label
 
-setprop view_BehaviorStackNames mBehaviorStackNames
-   set the uOPN ["view_BehaviorStackNames"] of me to mBehaviorStackNames
-   
-   # Send-in-time to prevent behavior setting behavior
-   send "init_Module" to me in 2 ticks
-end view_BehaviorStackNames
+setprop stack_Label someLabel
+   put the stack_Object of the target into stackObject
+   set the label of stackObject to someLabel
+   return stackObject
+end stack_Label
 
-
---> Working on
--
-command text_Set someFile, someText
-   put someFile into scriptFolder
-   set the itemdelimiter to slash
-   put empty into item -1 of scriptFolder
-   folder_CreateNested scriptFolder
-   
-   # Can be slow?
-   put textEncode (word 1 to -1 of someText, "UTF-8") into binText
-   put binText into url ("binfile:" & someFile)
-   return the result
-end text_Set
-
-private function _CheckTiddlyHtml sContent
-   get line 1 to 10 of sContent -- for debugging
-   if it is empty then return false
-   
-   # Should do some chekcs
-   return true
-end _CheckTiddlyHtml
-
-private function _CheckJsonFile sContent
-   put "jsonlint --quiet <" && jsonFile into sShell
-   put shell (sShell) into sResult
-   return sResult is empty
-end _CheckJsonFile
-
-private function _CheckJson tiddlyJSON
-   return true
-   
-   -- put json_ToArray (tiddlyJSON) into tiddlyArray
-   -- put jsonImport (tiddlyJSON) into tiddlyArray -- can crash
-   -- put tiddlyArray is an array into isJSON
-   
-   # This is slow
-   put the tempname & ".json" into jsonFile
-   text_Set jsonFile, tiddlyJSON
-   put _CheckJsonFile (jsonFile) into isJSON
-   
-   if isJSON is false then
-      breakpoint -- often an issue with complex json
-      set the tiddly_Notification of me to "Cannot encode JSON for export! Hopefully html export is good."
-   end if
-   return isJSON
-end _CheckJson
-
-private command _ExportFullTiddlyHtml sContent
-   if _CheckTiddlyHtml (sContent) is true then
-      _SaveText sContent
-   end if
-   
-   # Also Export all content JSON
-   put the tiddly_JSON of me into tiddlyJSON
-   _ExportTiddlyJson tiddlyJSON
-   if item 1 of the result is "Error" then
-      lcw_Notify the result
-      -- breakpoint
-   else
-      
-   end if
-end _ExportFullTiddlyHtml
-
-private command _ExportTiddlyJson tiddlyJSON
-   if char 1 to 2 of tiddlyJSON is not "[{" then
-      breakpoint -- often an issue with complex json
-      return "Error, not a json file"
-   end if
-   
-   # Check JSON
-   if _CheckJson (tiddlyJSON) is false then
-      breakpoint -- often an issue with complex json
-      set the tiddly_Notification of me to "Cannot encode JSON for export! Hopefully html export is good."
-      return "Error, could not parse a json file"
-   end if
-   
-   # Export Json
-   put the browser_File of me into jsonFile
-   set the itemdelimiter to "."
-   put "json" into item -1 of jsonFile
-   
-   put jsonFile into scriptFolder
-   set the itemdelimiter to slash
-   put empty into item -1 of scriptFolder
-   folder_CreateNested scriptFolder
-   
-   # Save JOSN
-   -- put textEncode (word 1 to -1 of someText, "UTF-8") into binText -- slow for json?
-   put tiddlyJSON into url ("binfile:" & jsonFile) -- assume it is binary?
-   
-   return jsonFile
-end _ExportTiddlyJson
+getprop stack_Object
+   -- revTargetStack
+   return the defaultstack
+end stack_Object
 
 setprop tiddly_Notification alertText
    switch the tiddly_NofificationStyle of me
@@ -216,95 +93,75 @@ end tiddly_Notification
 getprop tiddly_NofificationStyle
    return the uOPN ["tiddly_NofificationStyle"] of me
 end tiddly_NofificationStyle
-   
+
 setprop tiddly_NofificationStyle sStyle
    set the uOPN ["tiddly_NofificationStyle"] of me to sStyle
 end tiddly_NofificationStyle
-   
 
---> Events
--
-on preOpenControl
-   init_Module
-   pass preOpenControl
-end preOpenControl
-
-on browserUnhandledLoadRequest blobUrl
-   -- Check if the URL is a Blob URL
-   switch
-      case blobUrl begins with "blob:null/"
-      case blobUrl begins with "blob:"
-         _HandleTiddlyWikiSave blobUrl
-         break
-      default
-         -- tiddler:%20%3CtiddlerTitle%3E
-         put "URL not recognized as a Blob URL:" && urldecode (blobUrl)
-         -- breakpoint
-   end switch
-end browserUnhandledLoadRequest
-
-on browserDocumentLoadComplete pUrl
-   -- called when url loading ends
-   _InjectExternalJavascript 
-end browserDocumentLoadComplete
-
-
---> Tiddly | Javascript
--
-on tiddlyButton_Call sMessage
-   if sMessage is empty then
+getprop displayed_TiddlyFile
+   put _GetDisplayedData() into sURL
+   if char 1 to 7 of sURL = "file://" then
+      put char 8 to -1 of sURL into sFile
+      return sFile
+   else
       return empty
    end if
-   
-   local sResult
-   put the long id of me into tiddlyView -- more reliable if in behavior
-   
-   # Strip enclosing quotes (should fix javascript)
-   text_StripEnclosing sMessage, quote
-   put "tiddly_" & word 1 of sMessage into tiddlyCommand
-   dispatch tiddlyCommand with sMessage,tiddlyView
-   --
-   switch it
-      case "handled" -- the message was handled and not passed
-         break
-      case "unhandled" -- no matching handlers were found
-         tiddly_UnhandledCommand sMessage, tiddlyView
-         break
-      case "passed"
-         breakpoint
-   end switch
-end tiddlyButton_Call
+end displayed_TiddlyFile
 
-command guide_ExternalLink sUrl
-   put the long id of the target into dView
-   --
-   put merge ("How would you like to open [[sUrl]]") into someQuestion
-   -- answer someQuestion with "Cancel" or "LiveBrowser" or "Firefox" as sheet
-   answer someQuestion with "Cancel" or "Firefox" as sheet
-   switch it
-      case "Cancel"
-         exit to top
-         break
-      default
-         launch url sUrl -- Opens the link in the default browser
-         set the clipboardData to sUrl
-         break
-   end switch
-end guide_ExternalLink
+setprop displayed_TiddlyFile sFile
+   put "file://" & sFile into sUrl
+   set the displayed_Data of me to sUrl
+end displayed_TiddlyFile
 
-command guide_Go sUrl
-   put item 3 to -1 of sUrl into guideName
-   if exists (stack guideName) then
-      go to stack guideName
+getprop tiddly_URL
+   return the displayed_Data of me
+end tiddly_URL
+
+setprop tiddly_URL sURL
+   set the displayed_Data of me to sURL
+end tiddly_URL
+
+getprop displayed_Data
+   return _GetDisplayedData()
+end displayed_Data
+
+setprop displayed_Data sURL
+   _SetDisplayedData sURL -- store data in case browser issue
+   set the browser_URL of me to sURL
+end displayed_Data
+
+getprop browser_URL
+   put the url of me into sURL
+   return sURL
+end browser_URL
+
+setprop browser_URL sURL
+   set the url of me to sURL
+   return sURL
+end browser_URL
+
+getprop tiddly_Title
+   get the tiddler_Text ["$:/SiteTitle"] of me
+   if it is empty then
+      beep
+      get the tiddler_Text ["$:/SiteTitle"] of me
+      return it
    else
-      put the long id of the target into dView
-      lcw_Answer "Launch guide '[[guideName]]'?", dView, guideName
+      return it
    end if
-end guide_Go
+end tiddly_Title
 
+getprop tiddly_SubTitle
+   get the tiddler_Text ["$:/SiteSubtitle"] of me
+   if it is empty then
+      beep
+      get the tiddler_Text ["$:/SiteSubtitle"] of me
+      return it
+   else
+      return it
+   end if
+end tiddly_SubTitle
 
---> Props
--
 getprop readme_Folder
    put the browser_File of the target into readmeFolder
    set the itemdelimiter to slash
@@ -759,16 +616,6 @@ getprop browser_HTML
    return tSerialized
 end browser_HTML
 
-getprop browser_URL
-   put the url of me into sURL
-   return sURL
-end browser_URL
-
-setprop browser_URL sURL
-   set the url of me to sURL
-   return sURL
-end browser_URL
-
 
 --> Objects
 -
@@ -858,7 +705,7 @@ end lcw_Notify
 
 getprop card_Colour
    -- put the card_Object of me into cObject
-   put my_CardObject() into cObject
+   put _MyCardObject() into cObject
    if exists (cObject) is false then return empty
    --
    put the backgroundColor of cObject into sColour
@@ -867,7 +714,7 @@ end card_Colour
 
 setprop card_Colour sColour
    -- put the card_Object of me into cObject
-   put my_CardObject() into cObject
+   put _MyCardObject() into cObject
    if exists (cObject) is false then return empty
    --
    switch sColour
@@ -882,32 +729,166 @@ setprop card_Colour sColour
 end card_Colour
 
 
---> Deps
+--> Deps | Save
 -
-function my_CardObject
+private function _MyCardObject
    -- ideCoreCardOfcontrol
    put the long id of me into myObject
    put wordOffset ("card", myObject) into wNum
    if wNum = 0 then return empty
    return word wNum to -1 of myObject
-end my_CardObject
+end _MyCardObject
 
-getprop stack_Label
-   put the stack_Object of the target into stackObject
-   put the label of stackObject into someLabel
-   return someLabel
-end stack_Label
+command text_Set someFile, someText
+   put someFile into scriptFolder
+   set the itemdelimiter to slash
+   put empty into item -1 of scriptFolder
+   folder_CreateNested scriptFolder
+   
+   # Can be slow?
+   put textEncode (word 1 to -1 of someText, "UTF-8") into binText
+   put binText into url ("binfile:" & someFile)
+   return the result
+end text_Set
 
-setprop stack_Label someLabel
-   put the stack_Object of the target into stackObject
-   set the label of stackObject to someLabel
-   return stackObject
-end stack_Label
+private function _GetDisplayedData
+   put the uOPN ["tiddly_URL"] of me into sURL
+   return sURL
+end _GetDisplayedData
 
-getprop stack_Object
-   -- revTargetStack
-   return the defaultstack
-end stack_Object
+private command _SetDisplayedData sURL
+   set the uOPN ["tiddly_URL"] of me to sURL
+end _SetDisplayedData
+
+private function _CheckTiddlyHtml sContent
+   get line 1 to 10 of sContent -- for debugging
+   if it is empty then return false
+   
+   # Should do some chekcs
+   return true
+end _CheckTiddlyHtml
+
+private function _CheckJsonFile sContent
+   put "jsonlint --quiet <" && jsonFile into sShell
+   put shell (sShell) into sResult
+   return sResult is empty
+end _CheckJsonFile
+
+private function _CheckJson tiddlyJSON
+   return true
+   
+   -- put json_ToArray (tiddlyJSON) into tiddlyArray
+   -- put jsonImport (tiddlyJSON) into tiddlyArray -- can crash
+   -- put tiddlyArray is an array into isJSON
+   
+   # This is slow
+   put the tempname & ".json" into jsonFile
+   text_Set jsonFile, tiddlyJSON
+   put _CheckJsonFile (jsonFile) into isJSON
+   
+   if isJSON is false then
+      breakpoint -- often an issue with complex json
+      set the tiddly_Notification of me to "Cannot encode JSON for export! Hopefully html export is good."
+   end if
+   return isJSON
+end _CheckJson
+
+private command _ExportFullTiddlyHtml sContent
+   if _CheckTiddlyHtml (sContent) is true then
+      _SaveText sContent
+   end if
+   
+   # Also Export all content JSON
+   put the tiddly_JSON of me into tiddlyJSON
+   _ExportTiddlyJson tiddlyJSON
+   if item 1 of the result is "Error" then
+      lcw_Notify the result
+      -- breakpoint
+   else
+      
+   end if
+end _ExportFullTiddlyHtml
+
+private command _ExportTiddlyJson tiddlyJSON
+   if char 1 to 2 of tiddlyJSON is not "[{" then
+      breakpoint -- often an issue with complex json
+      return "Error, not a json file"
+   end if
+   
+   # Check JSON
+   if _CheckJson (tiddlyJSON) is false then
+      breakpoint -- often an issue with complex json
+      set the tiddly_Notification of me to "Cannot encode JSON for export! Hopefully html export is good."
+      return "Error, could not parse a json file"
+   end if
+   
+   # Export Json
+   put the browser_File of me into jsonFile
+   set the itemdelimiter to "."
+   put "json" into item -1 of jsonFile
+   
+   put jsonFile into scriptFolder
+   set the itemdelimiter to slash
+   put empty into item -1 of scriptFolder
+   folder_CreateNested scriptFolder
+   
+   # Save JOSN
+   -- put textEncode (word 1 to -1 of someText, "UTF-8") into binText -- slow for json?
+   put tiddlyJSON into url ("binfile:" & jsonFile) -- assume it is binary?
+   
+   return jsonFile
+end _ExportTiddlyJson
+
+on tiddlyButton_Call sMessage
+   if sMessage is empty then
+      return empty
+   end if
+   
+   local sResult
+   put the long id of me into tiddlyView -- more reliable if in behavior
+   
+   # Strip enclosing quotes (should fix javascript)
+   text_StripEnclosing sMessage, quote
+   put "tiddly_" & word 1 of sMessage into tiddlyCommand
+   dispatch tiddlyCommand with sMessage,tiddlyView
+   --
+   switch it
+      case "handled" -- the message was handled and not passed
+         break
+      case "unhandled" -- no matching handlers were found
+         tiddly_UnhandledCommand sMessage, tiddlyView
+         break
+      case "passed"
+         breakpoint
+   end switch
+end tiddlyButton_Call
+
+command guide_ExternalLink sUrl
+   put the long id of the target into dView
+   --
+   put merge ("How would you like to open [[sUrl]]") into someQuestion
+   -- answer someQuestion with "Cancel" or "LiveBrowser" or "Firefox" as sheet
+   answer someQuestion with "Cancel" or "Firefox" as sheet
+   switch it
+      case "Cancel"
+         exit to top
+         break
+      default
+         launch url sUrl -- Opens the link in the default browser
+         set the clipboardData to sUrl
+         break
+   end switch
+end guide_ExternalLink
+
+command guide_Go sUrl
+   put item 3 to -1 of sUrl into guideName
+   if exists (stack guideName) then
+      go to stack guideName
+   else
+      put the long id of the target into dView
+      lcw_Answer "Launch guide '[[guideName]]'?", dView, guideName
+   end if
+end guide_Go
 
 function colour_GetRandom
    -- was "randomColour"
