@@ -5,12 +5,7 @@ copyright: David Bovill
 license: GPLv3
 name: lib_DisplayTiddlyWiki
 type: library
-version: 0.2
-
-
---> Varaibles
--
-local LocalArray
+version: 0.4
 
 
 --> Working on
@@ -21,9 +16,6 @@ function readme_GetColour readMeFile
    return sColour
 end readme_GetColour
 
-
---> Display | Tiddly | Wiki
--
 command edit_TiddlyHtml
    -- put the tempname & ".html" into sPath
    put the browser_File [true] of the target into sFile
@@ -34,6 +26,80 @@ command edit_TiddlyHtml
    code_EditFile sPath
 end edit_TiddlyHtml
 
+command display_TiddlyTool
+   ecoData_SetFarmAndGardens
+   put wikiGarden_ListShortFolders() into gardenFolders
+   url_SortDomainIndex gardenFolders
+   --
+   display_Tool gardenFolders, "Nextcloud", "Tiddly Tool"
+   put the result into dView
+   set the tool_Context of dView to "lcw_P2P"
+   return dView
+end display_TiddlyTool
+
+command display_CreateMenuDoc mTitle
+   put label_FromMenuTitle (mTitle) into mLabel
+   put help_TiddlyMenuFile (mTitle) into mFile
+   --
+   tiddly_Create mFile
+   put the result into mFile
+   if item 1 of mFile is "Error" then return mFile
+   --
+   display_TiddlyWikiFile mFile, mLabel
+   put the result into tiddlyView
+   return tiddlyView
+end display_CreateMenuDoc
+
+command display_TiddlyWikiFile mFile, pLabel
+   if pLabel is empty then
+      set the itemdelimiter to slash
+      get item -1 of mFile 
+      set the itemdelimiter to "."
+      put item 1 of it into pLabel
+   end if
+   
+   # Display
+   display_TiddlyWiki mFile
+   put the result into tiddlyView
+   
+   # Label
+   put empty into strapline
+   set the stack_Label of tiddlyView to pLabel
+   
+   wait 20 ticks
+   -- set the tiddly_Title [strapline] of tiddlyView to pLabel
+   
+   -- put the tiddler_Exists ["About"] of tiddlyView into tExists
+   -- set the tiddler_Markdown ["About"]  of tiddlyView to "Hello [[world]]!"
+   --
+   put the menuBar_View of tiddlyView into mBarView
+   set the menuButton_Title of btn 2 of mBarView to "Global | Help | Tiddly | Menu"
+   return tiddlyView
+end display_TiddlyWikiFile
+
+command display_TiddlyWiki sFileOrUrl, pTiddlyView, pFullScreen
+   set the itemdelimiter to slash
+   put url_GetProtocol (sFileOrUrl) into sProtocol
+   switch
+      case sProtocol is among the items of "http/https"
+         put sFileOrUrl into tiddlyURL
+         display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
+         break
+      case the number of items of sFileOrUrl = 1
+         put tiddly_File (sFileOrUrl) into tiddlyFile
+         display_TiddlyFile tiddlyFile, pTiddlyView, pFullScreen
+         break
+      default
+         put sFileOrUrl into tiddlyFile
+         display_TiddlyFile tiddlyFile, pTiddlyView, pFullScreen
+   end switch
+   put the result into tiddlyView
+   return tiddlyView
+end display_TiddlyWiki
+
+
+--> Display | Tiddly | Wiki
+-
 command display_TiddlyFile readMeFile, pTiddlyView, pFullScreen
    put "file://" & readMeFile into tiddlyURL
    display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
@@ -57,19 +123,18 @@ command display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
    switch
       case exists (pTiddlyView)
          put pTiddlyView into tiddlyView
-         -- tiddly_SetBehavior tiddlyView
-         -- set the tiddly_URL of tiddlyView to tiddlyURL
+         set the tiddly_URL of tiddlyView to tiddlyURL
          break
       case exists (stack readmeLabel)
          go to stack readmeLabel
          show stack readmeLabel
          put the tiddly_View of this cd into tiddlyView
+         set the tiddly_URL of tiddlyView to tiddlyURL
          break
       default
          put readme_GetColour (tiddlyURL) into cardColour
          --
-         -- display_CloneModule moduleName, tiddlyURL, subTitle, "tiddly_URL", "toplevel", readmeLabel, 20, cardColour
-         put view_GetTemplateObject (moduleName) into moduleObject
+         put default_FirstStackControl (moduleName) into moduleObject
          display_CloneModuleObject moduleObject, tiddlyURL, readmeLabel, "tiddly_URL", "random"
          put the result into tiddlyView
    end switch
@@ -132,32 +197,15 @@ command display_CloneModuleObject moduleObject, pData, pStackLabel, pDataProp, p
    return clonedViewObject
 end display_CloneModuleObject
 
-command display_TiddlyWiki sFileOrUrl, pTiddlyView, pFullScreen
-   set the itemdelimiter to slash
-   put url_GetProtocol (sFileOrUrl) into sProtocol
-   switch
-      case sProtocol is among the items of "http/https"
-         put sFileOrUrl into tiddlyURL
-         display_TiddlyURL tiddlyURL, pTiddlyView, pFullScreen
-         break
-      case the number of items of sFileOrUrl = 1
-         put tiddly_File (sFileOrUrl) into tiddlyFile
-         display_TiddlyFile tiddlyFile, pTiddlyView, pFullScreen
-         break
-      default
-         put sFileOrUrl into tiddlyFile
-         display_TiddlyFile tiddlyFile, pTiddlyView, pFullScreen
-   end switch
-   put the result into tiddlyView
-   return tiddlyView
-end display_TiddlyWiki
-
 command display_TiddlyTemplate shortTemplateFile, pTiddlyView, pFullScreen
    put tiddly_TemplateFile (shortTemplateFile) into tFile
    
    # Display tiddlyView create if it doesn't exist
    display_TiddlyFile tFile, pTiddlyView, pFullScreen
    put the result into tiddlyView
+   --
+   set the stack_Label of tiddlyView to ("Template:" && shortTemplateFile)
+   --
    return tiddlyView
 end display_TiddlyTemplate
 
@@ -206,176 +254,10 @@ command display_ModuleReadme moduleName, pTiddlyView, pFullScreen
    return tiddlyView
 end display_ModuleReadme
 
-
---> Tiddly
--
-command tiddly_SetBehavior tiddlyView, pWhich
-   switch pWhich
-      case "Wiki"
-         put the name of stack "behavior_ViewWikiBrowser" into bObject
-         break
-      default
-         put the name of stack "behavior_ViewTiddlyWiki" into bObject
-   end switch
+command display_Readme rName, pTiddlyView, pFullScreen
+   put tiddlyReadme_File (rName) into readMeFile
    --
-   set the behavior of tiddlyView to bObject
-end tiddly_SetBehavior
-
-function tiddly_OpenReadmeNames
-   put tiddly_ReadmeNameArray() into nameArray
-   put keys (nameArray) into rNames
-   sort rNames
-   return rNames
-end tiddly_OpenReadmeNames
-
-function tiddly_ReadmeNameArray
-   return LocalArray ["tiddly_ReadmeNameArray"]
-end tiddly_ReadmeNameArray
-
-function tiddly_OpenWikiMenu pForce
-   put LocalArray ["tiddly_OpenWikiMenu"] into openWikiMenu
-   return openWikiMenu
-end tiddly_OpenWikiMenu
-
-function tiddly_ConstructOpenWikiMenu
-   put stack_ListNames("Project *") into myMenu
-   get stack_ListNames("Module *")
-   if it is empty then
-      return myMenu
-   else if myMenu is empty then
-      return it
-   else
-      put CR & "-" after myMenu
-      put CR & it after myMenu
-      return myMenu
-   end if
-end tiddly_ConstructOpenWikiMenu
-
-
---> Init
--
-command tiddly_InitMenuCache
-   tiddly_LoadReadmeData
-   tiddly_LoadOpenWikiMenu
-   --
-   tiddly_LoadShortTemplates
-end tiddly_InitMenuCache
-
-command tiddly_LoadShortFiles
-   # Default asset Files of View|TiddlyWiki Template
-   put view_GetTemplateObject ("View|TiddlyWiki") into tiddlyTemplate
-   put the module_ShortHtmlFiles of tiddlyTemplate into mFiles
-   --
-   put mFiles into LocalArray ["tiddly_ListShortFiles"]
-end tiddly_LoadShortFiles
-
-command tiddly_LoadShortTemplates
-   # Default asset Files of View|TiddlyWiki Template
-   put view_GetTemplateObject ("View|TiddlyWiki") into tiddlyTemplate
-   put the module_ShortHtmlFiles ["template"] of tiddlyTemplate into tFiles
-   
-   put tFiles into LocalArray ["tiddly_ShortTemplates"]
-end tiddly_LoadShortTemplates
-
-command tiddly_LoadReadmeData
-   put _ListReadmeData() into readmeData
-   put readmeData into LocalArray ["tiddly_ReadmeData"]
-end tiddly_LoadReadmeData
-
-command tiddly_LoadOpenWikiMenu
-   put tiddly_ConstructOpenWikiMenu() into LocalArray ["tiddly_OpenWikiMenu"]
-end tiddly_LoadOpenWikiMenu
-
-function tiddly_GetReadmeData pForce
-   if pForce is true then tiddly_LoadReadmeData
-   --
-   put LocalArray ["tiddly_ReadmeData"] into readmeData
-   return readmeData
-end tiddly_GetReadmeData
-
-function tiddly_ListShortTemplates pForce
-   if pForce is true then tiddly_LoadShortTemplates
-   --
-   put LocalArray ["tiddly_ShortTemplates"] into tFiles
-   return tFiles
-end tiddly_ListShortTemplates
-
-function tiddly_ListShortFiles pForce
-   if pForce is true then tiddly_LoadShortFiles
-   --
-   put LocalArray ["tiddly_ListShortFiles"] into mFiles
-   return mFiles
-end tiddly_ListShortFiles
-
-
---> Env
--
-function env_ListReadmePaths pForce
-   put tiddly_GetReadmeData (pForce) into readmeData
-   --
-   put readmeData ["projectReadmeFiles"] into projectReadmeFiles
-   put readmeData ["moduleReadmeFiles"] into moduleReadmeFiles
-   return word 1 to -1 of moduleReadmeFiles & CR & projectReadmeFiles
-end env_ListReadmePaths
-
-function env_ListReadmeNames pForce
-   put tiddly_GetReadmeData (pForce) into readmeData
-   --
-   put readmeData ["projectReadmeNames"] into projectReadmeNames
-   put readmeData ["moduleReadmeNames"] into moduleReadmeNames
-   return word 1 to -1 of moduleReadmeNames & CR & projectReadmeNames
-end env_ListReadmeNames
-
-function env_ReadmeNameArray pForce
-   put tiddly_GetReadmeData (pForce) into readmeData
-   put readmeData ["nameArray"] into nameArray
-   return nameArray
-end env_ReadmeNameArray
-
-
---> Private
--
-private function _ListReadmeData
-   put env_GetRepoFolder() into repoFolder
-   put folders (repoFolder) into shortFolders
-   set the itemdelimiter to slash
-   repeat for each line projectName in shortFolders
-      if char 1 of projectName = "." then next repeat
-      --
-      -- set the cursor to busy
-      put repoFolder & projectName & "/README.html" into sFile
-      if there is a file sFile then
-         put sFile & CR after projectReadmeFiles
-         put projectName & CR after projectReadmeNames
-         put sFile into readmeData ["nameArray"][projectName]
-      end if
-      
-      put project_ListModuleFolders (projectName) into moduleFolders
-      repeat for each line moduleFolder in moduleFolders
-         -- set the cursor to busy
-         --
-         put moduleFolder & "README.html" into sFile
-         if there is a file sFile then
-            put sFile & CR after moduleReadmeFiles
-            --
-            put item -1 of moduleFolder into moduleName
-            replace "_" with "|" in moduleName
-            put moduleName & CR after moduleReadmeNames
-            --
-            put sFile into readmeData ["nameArray"][moduleName]
-         end if
-      end repeat
-   end repeat
-   --
-   delete char -1 of projectReadmeNames
-   delete char -1 of projectReadmeFiles
-   delete char -1 of moduleReadmeNames
-   delete char -1 of moduleReadmeFiles
-   --
-   put projectReadmeNames into readmeData ["projectReadmeNames"]
-   put projectReadmeFiles into readmeData ["projectReadmeFiles"]
-   put moduleReadmeNames into readmeData ["moduleReadmeNames"]
-   put moduleReadmeFiles into readmeData ["moduleReadmeFiles"]
-   --
-   return readmeData
-end _ListReadmeData
+   display_TiddlyFile readMeFile, pTiddlyView, pFullScreen
+   put the result into tiddlyView
+   return tiddlyView
+end display_Readme

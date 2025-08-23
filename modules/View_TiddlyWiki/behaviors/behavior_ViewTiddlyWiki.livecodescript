@@ -18,6 +18,29 @@ constant NotificationTemplate = "$:/temp/NotificationTemplate"
 
 --> Working on
 -
+private function file_FromUrl sURL, pUseShort
+   -- file:///Users/david/Documents/git-repos/LiveCodeWorld/lcw_Wiki/modules/View_Guide/README.html#User%20&%20Identity%20Management
+   if sURL begins with "file:///" then
+      put urldecode (char 8 to -1 of sURL) into sFile
+      
+      set the itemdelimiter to slash
+      --
+      get item -1 of sFile
+      set the itemdelimiter to "#"
+      put item 1 of it into shortFile
+      
+      if pUseShort is true then
+         return shortFile
+      else
+         set the itemdelimiter to slash
+         put shortFile into item -1 of sFile
+         return sFile
+      end if
+   else
+      return empty
+   end if
+end file_FromUrl
+
 
 
 --> Events
@@ -43,16 +66,20 @@ end browserDocumentLoadComplete
 
 on preOpenControl
    -- Don't put any behavior settting scripts in behaviors
-   -- Is this reliably sent?
-   
    # Tiddly Init 
-   dispatch "_SetJavascriptHandlers" to tObject
-   dispatch "LayoutControl" to tObject
+   -- _SetJavascriptHandlers
    --
    # Display Init
    set the card_Colour of me to "random" -- so we know behavior is active
    pass preOpenControl
 end preOpenControl
+
+private command _SetJavascriptHandlers
+   # Should already be set and saved
+   put "javascript_Result,tiddlyButton_Call,externalLinkHandler" into jHandlers
+   replace comma with CR in jHandlers
+   set the javascriptHandlers of me to jHandlers
+end _SetJavascriptHandlers
 
 getprop stack_Label
    put the stack_Object of the target into stackObject
@@ -90,6 +117,23 @@ setprop tiddly_Notification alertText
    return the result
 end tiddly_Notification
 
+command lcw_Notify someMessage, pTitle, pMergeValue
+   -- needs to work cross platform
+   replace quote with empty in someMessage
+   replace "'" with empty in someMessage
+   text_ReQuote someMessage, pMergeValue
+   --
+   try
+      if pTitle is empty then put "LiveCode World Notification" into pTitle
+      put "osascript -e" && "'" & "display notification" && quote & someMessage & quote into someShell
+      put "with title" && quote & pTitle & quote after someShell
+      put "'" after someShell
+      put shell (someShell) into shellResult
+   catch e
+      put someMessage
+   end try
+end lcw_Notify
+
 getprop tiddly_NofificationStyle
    return the uOPN ["tiddly_NofificationStyle"] of me
 end tiddly_NofificationStyle
@@ -98,7 +142,7 @@ setprop tiddly_NofificationStyle sStyle
    set the uOPN ["tiddly_NofificationStyle"] of me to sStyle
 end tiddly_NofificationStyle
 
-getprop displayed_TiddlyFile
+getprop tiddly_File
    put _GetDisplayedData() into sURL
    if char 1 to 7 of sURL = "file://" then
       put char 8 to -1 of sURL into sFile
@@ -106,12 +150,12 @@ getprop displayed_TiddlyFile
    else
       return empty
    end if
-end displayed_TiddlyFile
+end tiddly_File
 
-setprop displayed_TiddlyFile sFile
+setprop tiddly_File sFile
    put "file://" & sFile into sUrl
    set the displayed_Data of me to sUrl
-end displayed_TiddlyFile
+end tiddly_File
 
 getprop tiddly_URL
    return the displayed_Data of me
@@ -686,23 +730,6 @@ function lcw_Question someQuestion, pQVar, pQVar2, pQVar3
    return someQuestion
 end lcw_Question
 
-command lcw_Notify someMessage, pTitle, pMergeValue
-   -- needs to work cross platform
-   replace quote with empty in someMessage
-   replace "'" with empty in someMessage
-   text_ReQuote someMessage, pMergeValue
-   --
-   try
-      if pTitle is empty then put "LiveCode World Notification" into pTitle
-      put "osascript -e" && "'" & "display notification" && quote & someMessage & quote into someShell
-      put "with title" && quote & pTitle & quote after someShell
-      put "'" after someShell
-      put shell (someShell) into shellResult
-   catch e
-      put someMessage
-   end try
-end lcw_Notify
-
 getprop card_Colour
    -- put the card_Object of me into cObject
    put _MyCardObject() into cObject
@@ -811,7 +838,7 @@ end _ExportFullTiddlyHtml
 
 private command _ExportTiddlyJson tiddlyJSON
    if char 1 to 2 of tiddlyJSON is not "[{" then
-      breakpoint -- often an issue with complex json
+      -- breakpoint -- often an issue with complex json
       return "Error, not a json file"
    end if
    
@@ -1126,38 +1153,6 @@ private command _SaveText sText, pShortFile
    set the tiddly_Notification of me to sNotification
    return tiddlyFile
 end _SaveText
-
-private function file_FromUrl sURL, pUseShort
-   -- file:///Users/david/Documents/git-repos/LiveCodeWorld/lcw_Wiki/modules/View_Guide/README.html#User%20&%20Identity%20Management
-   if sURL begins with "file:///" then
-      put char 8 to -1 of sURL into sFile
-      
-      set the itemdelimiter to slash
-      --
-      get item -1 of sFile
-      set the itemdelimiter to "#"
-      put item 1 of it into shortFile
-      
-      if pUseShort is true then
-         return shortFile
-      else
-         set the itemdelimiter to slash
-         put shortFile into item -1 of sFile
-         return sFile
-      end if
-   else
-      return empty
-   end if
-end file_FromUrl
-
-private command _SetJavascriptHandlers
-   put "javascript_Result,tiddlyButton_Call,externalLinkHandler" into jHandlers
-   replace comma with CR in jHandlers
-   --
-   set the javascriptHandlers of me to jHandlers
-   --
-   lcw_Notify (the params & CR & jHandlers)
-end _SetJavascriptHandlers
 
 command _InjectExternalJavascript
    -- Set the handler for JavaScript to call back into LiveCode

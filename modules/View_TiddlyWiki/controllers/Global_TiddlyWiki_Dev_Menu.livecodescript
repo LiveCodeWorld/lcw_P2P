@@ -32,11 +32,79 @@ end menu_CheckTarget
 
 --> Global | TiddlyWiki | Dev | Menu
 -
-on menu_Behavior displayView
-   put the behavior of displayView into bObject
-   edit the script of bObject
-end menu_Behavior
+on menu_Recolour tiddlyView
+   set the card_Colour of tiddlyView to "random"
+end menu_Recolour
 
+on menu_RevealReadme tiddlyView
+   put the browser_File of tiddlyView into tiddlyFile
+   finder_Reveal tiddlyFile
+end menu_RevealReadme
+
+on menu_DraftAbout tiddlyView
+   put _GuideName (tiddlyView) into moduleName
+   if exists (stack moduleName) is false then
+      breakpoint
+      exit to top
+   end if
+   
+   put the project_Name of stack moduleName into projectName
+   put the project_Folder of stack moduleName into projectFolder
+   
+   put scaffold_Get ("Guide: About") into mTemplate
+   put merge (mTemplate) into aboutText
+   --
+   set the tiddler_Text ["ProjectName"] of tiddlyView to projectName
+   set the tiddler_Text ["About"] of tiddlyView to aboutText
+end menu_DraftAbout
+
+on menu_ShowMenu tiddlyView
+   put the menubar_View of tiddlyView into mView
+   menuBar_ToggleShowMenu mView
+end menu_ShowMenu
+
+on menu_LoadReadmeData
+   tiddly_InitMenuCache
+end menu_LoadReadmeData
+
+/*
+on menu_ShowTiddler tiddlyView, sTitle
+   if the tiddler_IsShowing [sTitle] of tiddlyView is true then
+      set the hide_Tiddler of tiddlyView to sTitle
+   else
+      set the prepend_Tiddler of tiddlyView to sTitle
+   end if
+end menu_ShowTiddler
+
+getprop disabled_ShowTiddler [tiddlyView]
+   return LocalArray ["sTitles"] is empty
+end disabled_ShowTiddler
+
+getprop showTiddler_Param [tiddlyView]
+   return the tiddly_StoryTitles of tiddlyView
+end showTiddler_Param
+
+getprop showTiddler_Params [tiddlyView]
+   return LocalArray ["sTitles"]
+end showTiddler_Params
+
+on menu_DeleteTiddler tiddlyView, sTitle
+   set the delete_Tiddler of tiddlyView to sTitle
+end menu_DeleteTiddler
+
+getprop disabled_ShowTiddler [tiddlyView]
+   if LocalArray ["sTitles"] is empty then
+      return "delete"
+   else
+      return false
+   end if
+end disabled_ShowTiddler
+
+getprop deleteTiddler_Params [tiddlyView]
+   return LocalArray ["sTitles"]
+end deleteTiddler_Params
+
+*/
 private on _
 end _
 

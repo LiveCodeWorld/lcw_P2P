@@ -21,6 +21,8 @@ constant LiveCodePluginTitle = "$:/plugins/LiveCode/wikiscript"
 --> Menu | Props
 -
 getprop menu_Target [tObject]
+   -- tiddly_InitMenuCache
+   --
    # Titles of displayed tiddlyWiki  
    put display_MenuTarget(tObject) into tiddlyView
    if exists (tiddlyView) is false then
@@ -38,8 +40,8 @@ getprop menu_Target [tObject]
    return tiddlyView
 end menu_Target
 
--- getprop checked_LiveCodePlugin [tiddlyView]
-return the tiddler_Exists [LiveCodePluginTitle] of tiddlyView
+getprop checked_LiveCodePlugin [tiddlyView]
+   return the tiddler_Exists [LiveCodePluginTitle] of tiddlyView
 end checked_LiveCodePlugin
 
 getprop menu_CheckTarget [tiddlyView]
@@ -89,37 +91,59 @@ getprop checked_ShowMenu [tiddlyView]
    return sBoolean
 end checked_ShowMenu
 
-getprop goToWiki_Params [tiddlyView]
-   return tiddly_OpenWikiMenu()
-end goToWiki_Params
-
 
 --> Global | TiddlyWiki | Menu
 -
-on menu_OpenGuide
-   go to stack "View|Guide"
-end menu_OpenGuide
-
 on menu_GoToWiki tiddlyView, stackName
    go to stack stackName
 end menu_GoToWiki
 
+getprop goToWiki_Param [tiddlyView]
+   get the stack_Name of tiddlyView
+   return it
+end goToWiki_Param
+
+getprop goToWiki_Params [tiddlyView]
+   return tiddly_OpenWikiMenu()
+end goToWiki_Params
+
+getprop disabled_GoToWiki
+   return tiddly_OpenWikiMenu() is empty
+end disabled_GoToWiki
+
 on menu_OpenReadme tiddlyView, rName
-   put env_ReadmeNameArray() into nameArray
-   put nameArray [rName] into tiddlyFile
-   --
-   display_TiddlyFile tiddlyFile
+   if the shiftKey is "Down" then
+      display_Readme rName
+   else
+      display_Readme rName, tiddlyView
+   end if
 end menu_OpenReadme
 
--- on submenu_TiddlyPlugins
--- return "Global | TiddlyWiki | Plugins | Menu"
-return the menu_CreateTitle ["Plugins"] of me
-end submenu_TiddlyPlugins
+on menu_OpenMenuWiki tView, mTitle
+   put help_TiddlyMenuFile (mTitle) into mFile
+   display_TiddlyFile mFile
+end menu_OpenMenuWiki
+
+getprop openMenuWiki_Params
+   return help_ListTiddlyMenuTitles()
+end openMenuWiki_Params
+
+on menu_TiddlyTool
+   display_TiddlyTool
+end menu_TiddlyTool
+
+on menu_CreateMenuWiki tiddlyView
+   put "Global | TiddlyWiki | Menu" into mTitle
+   put lcw_Ask ("What menu do you want to write about?", mTitle, tiddlyView) into mTitle
+   --
+   display_CreateMenuDoc mTitle
+end menu_CreateMenuWiki
 
 private on _
 end _
 
 on menu_TiddlyWiki tiddlyView, shortFile
+   put the stack_Name of tiddlyView
    -- put the browser_File of tiddlyView into htmlFile
    put view_GetTemplateObject ("View|TiddlyWiki") into tiddlyTemplate
    put the module_HtmlFile [shortFile] of tiddlyTemplate into htmlFile
@@ -199,10 +223,6 @@ on menu_CreateModuleTiddlers tiddlyView
    end repeat
 end menu_CreateModuleTiddlers
 
-on menu_CreateProjectTiddlers tiddlyView
-   breakpoint
-end menu_CreateProjectTiddlers
-
 on menu_CreateToolsPage tiddlyView
    put "Guide Tools" into sTitle
    put markdown_Construct ("Menus,Libraries,See also") into mdText
@@ -227,90 +247,43 @@ on menu_Launch tiddlyView
    end if
 end menu_Launch
 
-on menu_Recolour tiddlyView
-   set the card_Colour of tiddlyView to "random"
-end menu_Recolour
-
 on menu_FullScreen tiddlyView
    put the stack_Name of tiddlyView into sName
    put the fullscreen of stack sName into isFullScreen
    set the fullscreen of stack sName to (isFullScreen is false)
 end menu_FullScreen
 
-on menu_RevealReadme tiddlyView
-   put the browser_File of tiddlyView into tiddlyFile
-   finder_Reveal tiddlyFile
-end menu_RevealReadme
+private on _______
+end _______
 
-on menu_DraftAbout tiddlyView
-   put _GuideName (tiddlyView) into moduleName
-   if exists (stack moduleName) is false then
-      breakpoint
-      exit to top
+on menu_ResetTiddlyUrl tiddlyView
+   put the tiddly_URL of tiddlyView into tiddlyURL
+   set the browser_URL of tiddlyView to tiddlyURL
+end menu_ResetTiddlyUrl
+
+getprop checked_ResetTiddlyUrl [tiddlyView]
+   put the tiddly_URL of tiddlyView into tiddlyURL
+   put the browser_URL of tiddlyView into browserURL
+   return urldecode (browserURL) = tiddlyURL
+end checked_ResetTiddlyUrl
+
+on menu_ClearBrowserUrl tiddlyView
+   set the browser_URL of tiddlyView to empty
+end menu_ClearBrowserUrl
+
+on menu_ClearMenuTarget tiddlyView
+   put the menubar_View of tiddlyView into mBarview
+   if exists (mBarview) then
+      get the menuButton_Target [1] of mBarview
+      set the menuButton_Target [1] of mBarview to empty
    end if
-   
-   put the project_Name of stack moduleName into projectName
-   put the project_Folder of stack moduleName into projectFolder
-   
-   put scaffold_Get ("Guide: About") into mTemplate
-   put merge (mTemplate) into aboutText
-   --
-   set the tiddler_Text ["ProjectName"] of tiddlyView to projectName
-   set the tiddler_Text ["About"] of tiddlyView to aboutText
-end menu_DraftAbout
-
-on menu_ShowMenu tiddlyView
-   put the menubar_View of tiddlyView into mView
-   menuBar_ToggleShowMenu mView
-end menu_ShowMenu
+end menu_ClearMenuTarget
 
 on menu_Refresh tiddlyView
    dispatch "preOpenControl" to tiddlyView
+   dispatch "refresh_Menus" to tiddlyView
 end menu_Refresh
-
-on menu_LoadReadmeData
-   tiddly_InitMenuCache
-end menu_LoadReadmeData
 
 on submenu_Dev
    return menu_DevTitle ("Global | TiddlyWiki | Menu")
 end submenu_Dev
-
-/*
-on menu_ShowTiddler tiddlyView, sTitle
-   if the tiddler_IsShowing [sTitle] of tiddlyView is true then
-      set the hide_Tiddler of tiddlyView to sTitle
-   else
-      set the prepend_Tiddler of tiddlyView to sTitle
-   end if
-end menu_ShowTiddler
-
-getprop disabled_ShowTiddler [tiddlyView]
-   return LocalArray ["sTitles"] is empty
-end disabled_ShowTiddler
-
-getprop showTiddler_Param [tiddlyView]
-   return the tiddly_StoryTitles of tiddlyView
-end showTiddler_Param
-
-getprop showTiddler_Params [tiddlyView]
-   return LocalArray ["sTitles"]
-end showTiddler_Params
-
-on menu_DeleteTiddler tiddlyView, sTitle
-   set the delete_Tiddler of tiddlyView to sTitle
-end menu_DeleteTiddler
-
-getprop disabled_ShowTiddler [tiddlyView]
-   if LocalArray ["sTitles"] is empty then
-      return "delete"
-   else
-      return false
-   end if
-end disabled_ShowTiddler
-
-getprop deleteTiddler_Params [tiddlyView]
-   return LocalArray ["sTitles"]
-end deleteTiddler_Params
-
-*/
